@@ -288,7 +288,7 @@ class Music(commands.Cog):
         if voice:
             r_dict = {
                 "status": "",
-                "video_title": video_title[0],
+                "video_title": video_title,
                 "song_id": song_id,
                 "video_duration": video_duration,
                 "video_banner": video_banner
@@ -340,6 +340,7 @@ class Music(commands.Cog):
 
     @music.command()
     async def play(self, ctx, song: str):
+        await ctx.defer()
         song = await input_sanitizer(song)
         log.debug(song)
         start_time = time.time()
@@ -347,16 +348,13 @@ class Music(commands.Cog):
         m_embed = discord.Embed(title="Music", color=embed_color, url=embed_url)
         m_embed.set_footer(text=embed_footer)
         m_embed.set_author(name=embed_header, icon_url=embed_icon)
-        m_embed.add_field(name="Please hold on!", value="*We are fetching the song...*", inline=False)
-        msg = await ctx.respond(embed=m_embed)
-        m_embed.remove_field(0)
 
         # check valid YouTube url with regex
         if not re.search(r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\n]*)',song):
             results = YoutubeSearch(song, max_results=1).to_dict()
             if not results:
                 m_embed.add_field(name="Error", value="No results found!", inline=False)
-                await msg.edit(embed=m_embed)
+                await ctx.followup.send(embed=m_embed)
                 return
             song = f"https://www.youtube.com/watch?v={results[0]['id']}"
             log.debug(song)
@@ -366,24 +364,22 @@ class Music(commands.Cog):
 
         if res == "length_too_long":
             m_embed.add_field(name="Error", value="Song is too long!", inline=False)
-            await msg.edit_original_message(embed=m_embed)
+            await ctx.followup.send(embed=m_embed)
             return
 
         video_duration = round(int((res["video_duration"]))/60, 2)
 
         log.debug(f"Took {round(time.time() - start_time, 2)} seconds to fetch and play song")
         log.debug(res)
+        m_embed.add_field(name="Duration", value=f"{video_duration}")
+        m_embed.set_image(url=res["video_banner"])
         if res["status"] == "now_playing":
             m_embed.add_field(name="Now Playing", value=f"{res['video_title']}")
-            m_embed.add_field(name="Duration", value=f"{video_duration}")
-            m_embed.set_image(url=res["video_banner"])
-            await msg.edit_original_message(embed=m_embed, view=ReplayButton(song))
+            await ctx.followup.send(embed=m_embed, view=ReplayButton(song))
 
         elif res["status"] == "added_to_queue":
             m_embed.add_field(name="Song added to queue!", value=f"*{res['video_title']}*", inline=False)
-            m_embed.add_field(name="Duration", value=f"{video_duration}")
-            m_embed.set_image(url=res["video_banner"])
-            await msg.edit_original_message(embed=m_embed, view=ReplayButton(song))
+            await ctx.followup.send(embed=m_embed, view=ReplayButton(song))
 
 
 
@@ -467,21 +463,23 @@ class Music(commands.Cog):
 
     @music.command(name="queue", description="Shows the current queue")
     async def queuelist(self, ctx):
-        if not self.queues.song_list:
-            await ctx.respond("No songs in queue")
-            return
-
-        # invert the list so the first song is at the top and then convert to a string
-        # song_list = [f"{i+1}. {song[1].replace('[', '').replace(']', '')}" for i, song in enumerate(self.queues.song_list)]
-        print(self.queues.song_list[str(ctx.guild.id)])
-        queue_list = [f"{self.queues.song_list[str(ctx.guild.id)][i][1]}" for i in range(len(self.queues.song_list[str(ctx.guild.id)]))][::-1]
-        print(queue_list)
-        queue_list = "\n".join([f"{i + 1}. {queue_list[i]}".replace("[", "").replace("]", "").replace("'", "") for i in range(len(queue_list))])
 
         m_embed = discord.Embed(title="Music", color=embed_color, url=embed_url)
         m_embed.set_footer(text=embed_footer)
         m_embed.set_author(name=embed_header, icon_url=embed_icon)
-        m_embed.add_field(name="Queue", value=queue_list, inline=False)
+
+        if not self.queues.song_list:
+            m_embed.add_field(name="Queue", value="No songs in queue", inline=False)
+            await ctx.respond(embed=m_embed)
+            return
+
+        queue_list = [f"{self.queues.song_list[str(ctx.guild.id)][i][1]}" for i in range(len(self.queues.song_list[str(ctx.guild.id)]))][::-1]
+        queue_list = "\n".join([f"{i + 1}. {queue_list[i]}".replace("[", "").replace("]", "").replace("'", "") for i in range(len(queue_list))])
+
+        if queue_list:
+            m_embed.add_field(name="Queue", value=queue_list, inline=False)
+        else:
+            m_embed.add_field(name="Queue", value="No songs in queue", inline=False)
         await ctx.respond(embed=m_embed)
 
 
@@ -530,7 +528,7 @@ class Music(commands.Cog):
         self.db.commit()
 
         p_embed = discord.Embed(title="Music | Playlist", color=embed_color, url=embed_url, description=f"Adding to the playlist was successful!")
-        p_embed.add_field(name="Song", value=f"`{self.queues.current_song[1][0]}`", inline=False)
+        p_embed.add_field(name="Song", value=f"`{self.queues.current_song[1]}`", inline=False)
         p_embed.add_field(name="Playlist", value=f"`{playlist_name}`", inline=False)
         p_embed.set_footer(text=embed_footer)
         p_embed.set_author(name=embed_header, icon_url=embed_icon)
@@ -549,7 +547,7 @@ class Music(commands.Cog):
 
         # voice = get(self.client.voice_clients, guild=ctx.guild)
         for song in songs:
-            self.queues.add_song(song[0], song[1][0], ctx.guild.id)
+            self.queues.add_song(song[0], song[1], ctx.guild.id)
             log.debug(self.queuelist)
         # self.next_song(voice)
         p_embed = discord.Embed(title="Music | Playlist", color=embed_color, url=embed_url,
@@ -607,7 +605,7 @@ class Music(commands.Cog):
         self.db.commit()
 
         p_embed = discord.Embed(title="Music | Playlist", color=embed_color, url=embed_url, description=f"Deleting the song from the playlist was successful!")
-        p_embed.add_field(name="Song", value=f"{self.queues.current_song[1][0]}", inline=False)
+        p_embed.add_field(name="Song", value=f"{self.queues.current_song[1]}", inline=False)
         p_embed.add_field(name="Playlist", value=f"`{playlist_name}`", inline=False)
         p_embed.set_footer(text=embed_footer)
         p_embed.set_author(name=embed_header, icon_url=embed_icon)
