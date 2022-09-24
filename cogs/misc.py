@@ -42,7 +42,7 @@ class Other(commands.Cog):
             # results[0] = {'id': 'id', 'thumbnails': ['https://i.ytimg.com/vi/id/hqdefault.jpg'], 'title': 'title', 'duration': 'duration', 'views': 'views', 'channel': 'channel', 'channel_id': 'channel_id', 'url_suffix': 'url_suffix', 'long_desc': 'long_desc'}
 
             title = results[0]['title']
-            duration = results[0]['duration']
+            duration = f"{results[0]['duration'] // 60}:{str(results[0]['duration'] % 60).zfill(2)}"
             views = re.sub(r'\D', '', results[0]['views']) # Remove all non-digits from views
             channel = results[0]['channel']
             url = content
@@ -56,7 +56,8 @@ class Other(commands.Cog):
                     vid_info = ydl.extract_info(query, download=False)
 
                     title = vid_info['title']
-                    duration = str(round(int(vid_info['duration']) / 60, 3))
+                    duration = vid_info['duration']
+
                     views = vid_info['view_count']
                     channel = vid_info['uploader']
                     url = vid_info['webpage_url']
