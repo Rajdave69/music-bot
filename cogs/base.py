@@ -1,5 +1,4 @@
 import json
-
 from discord.utils import get
 from discord.ext import commands
 from discord import SlashCommandGroup
@@ -47,10 +46,10 @@ class Queue:
 q = Queue()
 
 class ReplayButton(discord.ui.View):
-    def __init__(self, video_url):
+    def __init__(self, video_url, video_title):
         super().__init__(timeout=None)
         self.url = video_url
-        self.client = client
+        self.title = video_title
 
     # async def on_timeout(self):
     #     for child in self.children:
@@ -60,7 +59,10 @@ class ReplayButton(discord.ui.View):
     @discord.ui.button(label="Replay", style=discord.ButtonStyle.gray, custom_id="replay")
     async def button_callback(self, button, interaction):  # Don't remove the unused variable
         await interaction.response.send_message("Added song to queue.", ephemeral=True)
-        q.add_song(self.url, "Replay", interaction.guild.id)
+        # get song id from url
+        video_id = re.search(r"v=(.*)", self.url).group(1)
+        q.add_song(video_id, self.title, interaction.guild.id)
+
         # await self.client.cogs.get('Music').player(self.ctx, self.url)
 
 
@@ -367,21 +369,20 @@ class Music(commands.Cog):
             await ctx.followup.send(embed=m_embed)
             return
 
-        video_duration = round(int((res["video_duration"]))/60, 2)
+        video_duration = str(round(int((res["video_duration"]))/60, 2)).replace(".", ":")
 
         log.debug(f"Took {round(time.time() - start_time, 2)} seconds to fetch and play song")
         log.debug(res)
-        m_embed.add_field(name="Duration", value=f"{video_duration}")
+
         m_embed.set_image(url=res["video_banner"])
         if res["status"] == "now_playing":
             m_embed.add_field(name="Now Playing", value=f"{res['video_title']}")
-            await ctx.followup.send(embed=m_embed, view=ReplayButton(song))
 
         elif res["status"] == "added_to_queue":
             m_embed.add_field(name="Song added to queue!", value=f"*{res['video_title']}*", inline=False)
-            await ctx.followup.send(embed=m_embed, view=ReplayButton(song))
-
-
+            
+        m_embed.add_field(name="Duration", value=f"{video_duration}")
+        await ctx.followup.send(embed=m_embed, view=ReplayButton(song, res['video_title']))
 
     @music.command()
     async def volume(self, ctx, volume: int):
