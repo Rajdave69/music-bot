@@ -1,3 +1,5 @@
+import json
+
 from discord.utils import get
 from discord.ext import commands
 from discord import SlashCommandGroup
@@ -5,6 +7,7 @@ import discord, os, sqlite3, random, yt_dlp, re, time
 from youtube_search import YoutubeSearch
 from backend import embed_icon, embed_color, embed_footer, embed_header, embed_url, client, music_channel  # , music_vc
 from backend import log, input_sanitizer
+from discord.ext import tasks
 
 class Queue:
     def __init__(self):
@@ -245,7 +248,6 @@ class Music(commands.Cog):
 
         self.c.execute('SELECT * FROM songs_cache')
         songs = self.c.fetchall()
-        video_title = []
 
         # get video id
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
@@ -253,9 +255,7 @@ class Music(commands.Cog):
                 vid_info = ydl.extract_info(song_url, download=False)
                 song_id = vid_info['id']
                 video_duration = vid_info['duration']
-                title = vid_info['title'].replace('"', '')
-                video_title.append(title)
-                del title
+                video_title = vid_info['title'].replace('"', '')
                 video_banner = vid_info['thumbnail']
 
             except Exception as e:
@@ -275,24 +275,54 @@ class Music(commands.Cog):
                     except FileExistsError:
                         log.warning(f"File {song_id} already exists in ./data/songs/")
 
-            self.c.execute(f'INSERT INTO songs_cache values("{song_id}","{video_title[0]}")')
+            self.c.execute(f'INSERT INTO songs_cache values("{song_id}","{video_title}")')
             self.db.commit()
 
         if not video_title:
             for s in songs:
                 if s[0] == song_id:
-                    video_title.append(s[1])
+                    log.debug("s1", s[1])
+                    video_title = s[1]
+        log.debug(video_title)
 
         if voice:
+            r_dict = {
+                "status": "",
+                "video_title": video_title[0],
+                "song_id": song_id,
+                "video_duration": video_duration,
+                "video_banner": video_banner
+            }
             if not voice.is_playing():
-
                 self.queues.add_song(song_id, video_title, guild_id=voice.guild.id)
                 self.next_song(voice)
                 voice.source = discord.PCMVolumeTransformer(voice.source, volume=self.volume)
-                return f"now_playing|{video_title[0]}|{song_id}|{video_duration}|{video_banner}"
+                r_dict["status"] = "now_playing"
+                return r_dict
             else:
                 self.queues.add_song(song_id, video_title, guild_id=voice.guild.id)
-                return f"added_to_queue|{video_title[0]}|{song_id}|{video_duration}|{video_banner}"
+                r_dict["status"] = "added_to_queue"
+                return r_dict
+
+    """
+    @tasks.loop(seconds=15)
+    async def save_queue(self):
+        log.debug("Saving queue")
+        with open('./data/queue.json', 'w') as f:
+            json.dump(self.queues, f, indent=4)
+
+    @tasks.loop(seconds=15)
+    async def get_queue(self):
+        log.debug("Getting queue")
+        with open('./data/queue.json', 'r') as f:
+            self.queues = json.load(f)
+        
+        self.queuelist = self.queues.get_queue(guild_id=voice.guild.id)
+
+    @save_queue.before_loop
+    async def before_save_queue(self):
+        await self.client.wait_until_ready()
+    """
 
 
 
@@ -339,21 +369,20 @@ class Music(commands.Cog):
             await msg.edit_original_message(embed=m_embed)
             return
 
-        res = res.split("|")
-        status = res[0]
-        video_title = res[1]
-        video_duration = round(int(res[3]) / 60, 2)
+        video_duration = round(int((res["video_duration"]))/60, 2)
 
         log.debug(f"Took {round(time.time() - start_time, 2)} seconds to fetch and play song")
-        if status == "now_playing":
-            m_embed.add_field(name="Now Playing", value=f"{video_title}")
+        log.debug(res)
+        if res["status"] == "now_playing":
+            m_embed.add_field(name="Now Playing", value=f"{res['video_title']}")
             m_embed.add_field(name="Duration", value=f"{video_duration}")
-            m_embed.set_image(url=res[4])
+            m_embed.set_image(url=res["video_banner"])
             await msg.edit_original_message(embed=m_embed, view=ReplayButton(song))
-        elif status == "added_to_queue":
-            m_embed.add_field(name="Song added to queue!", value=f"*{video_title}*", inline=False)
+
+        elif res["status"] == "added_to_queue":
+            m_embed.add_field(name="Song added to queue!", value=f"*{res['video_title']}*", inline=False)
             m_embed.add_field(name="Duration", value=f"{video_duration}")
-            m_embed.set_image(url=res[4])
+            m_embed.set_image(url=res["video_banner"])
             await msg.edit_original_message(embed=m_embed, view=ReplayButton(song))
 
 
@@ -444,8 +473,9 @@ class Music(commands.Cog):
 
         # invert the list so the first song is at the top and then convert to a string
         # song_list = [f"{i+1}. {song[1].replace('[', '').replace(']', '')}" for i, song in enumerate(self.queues.song_list)]
-
-        queue_list = [f"{self.queues.song_list[str(ctx.guild.id)][i][1]}" for i in range(len(self.queues.song_list))][::-1]
+        print(self.queues.song_list[str(ctx.guild.id)])
+        queue_list = [f"{self.queues.song_list[str(ctx.guild.id)][i][1]}" for i in range(len(self.queues.song_list[str(ctx.guild.id)]))][::-1]
+        print(queue_list)
         queue_list = "\n".join([f"{i + 1}. {queue_list[i]}".replace("[", "").replace("]", "").replace("'", "") for i in range(len(queue_list))])
 
         m_embed = discord.Embed(title="Music", color=embed_color, url=embed_url)
@@ -519,7 +549,8 @@ class Music(commands.Cog):
 
         # voice = get(self.client.voice_clients, guild=ctx.guild)
         for song in songs:
-            self.queues.add_song(song[0], song[1], ctx.guild.id)
+            self.queues.add_song(song[0], song[1][0], ctx.guild.id)
+            log.debug(self.queuelist)
         # self.next_song(voice)
         p_embed = discord.Embed(title="Music | Playlist", color=embed_color, url=embed_url,
                                 description=f"Successfully added all songs from the playlist to the queue!")
