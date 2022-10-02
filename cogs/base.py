@@ -397,7 +397,7 @@ class Music(commands.Cog):
             return
         voice.source.volume = volume / 100
         self.volume = volume / 100
-        await ctx.respond(f"Volume sucessfully set to {volume}%")
+        await ctx.respond(f"Volume set to {volume}%")
 
 
 
