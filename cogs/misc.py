@@ -42,7 +42,12 @@ class Other(commands.Cog):
             # results[0] = {'id': 'id', 'thumbnails': ['https://i.ytimg.com/vi/id/hqdefault.jpg'], 'title': 'title', 'duration': 'duration', 'views': 'views', 'channel': 'channel', 'channel_id': 'channel_id', 'url_suffix': 'url_suffix', 'long_desc': 'long_desc'}
 
             title = results[0]['title']
-            duration = f"{results[0]['duration'] // 60}:{str(results[0]['duration'] % 60).zfill(2)}"
+            # change mm:ss duration to seconds
+            duration = results[0]['duration']
+            duration = duration.split(":")
+            duration = int(duration[0]) * 60 + int(duration[1])
+            duration = f"{str(duration // 60)}:{str(duration % 60).zfill(2)}"
+
             views = re.sub(r'\D', '', results[0]['views']) # Remove all non-digits from views
             channel = results[0]['channel']
             url = content
