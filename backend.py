@@ -5,26 +5,22 @@ except Exception as errr:
     print("Unable to import modules. Please make sure you have the required modules installed. Error: ", errr)
     exit()
 
-
 intents = discord.Intents.all()
 
 # Loading config.ini
 config = configparser.ConfigParser()
 
 try:
-   config.read('data/config.ini')
+    config.read('data/config.ini')
 except Exception as e:
     print("Error reading the config.ini file. Error: " + str(e))
     exit()
-
-
 
 #  ==Getting variables from config file==
 try:
     prefix: str = config.get('general', 'prefix')
     log_level: str = config.get('general', 'log_level')
     presence: str = config.get('general', 'presence')
-
 
     embed_footer: str = config.get('discord', 'embed_footer')
     embed_header: str = config.get('discord', 'embed_header')
@@ -65,7 +61,8 @@ def colorlogger(name='moonball'):
     else:
         log.warning(f"Invalid log level {log_level}. Defaulting to INFO.")
         logger.setLevel("INFO")
-    return logger # Return the logger
+    return logger  # Return the logger
+
 
 log = colorlogger()
 
@@ -77,14 +74,16 @@ except Exception as err:
 # noinspection PyUnboundLocalVariable
 cur = con.cursor()
 
-
 # noinspection PyUnboundLocalVariable
-client = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, case_insensitive=True)  # Setting prefix
+client = commands.Bot(command_prefix=prefix, intents=intents, help_command=None,
+                      case_insensitive=True)  # Setting prefix
 
 
 async def input_sanitizer(input_str):
     # Sanitize input
-    cleaned = input_str.replace("'", "").replace('"', "").replace("`", "").replace("\\", "").replace("\n", "").replace("\r", "").replace(";", '')
+    cleaned = input_str.replace("'", "").replace('"', "").replace("`", "").replace("\\", "").replace("\n", "").replace(
+        "\r", "").replace(";", '')
     return cleaned
+
 
 music_channel = 880368661557309443
