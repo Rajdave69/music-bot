@@ -1,4 +1,5 @@
-import re, discord
+import re
+import discord
 import yt_dlp
 from discord.ext import commands
 from youtube_search import YoutubeSearch
@@ -19,27 +20,28 @@ class Other(commands.Cog):
             }]
         }
 
-
     @commands.Cog.listener()
     async def on_ready(self):
         log.info("Cogs : Misc.py Loaded")
-
 
     @commands.slash_command(name="search", description="Searches for a song on YouTube.")
     async def search(self, ctx, query):
         await ctx.defer()
 
-        embed = discord.Embed(title=f"YouTube Search", url=embed_url,description=f"Here are your search results. Requested by {ctx.author.mention}",color=embed_color)
+        embed = discord.Embed(title=f"YouTube Search", url=embed_url,
+                              description=f"Here are your search results. Requested by {ctx.author.mention}",
+                              color=embed_color)
         embed.set_author(name=embed_header, icon_url=embed_icon)
 
         # If it not a URL, search for it
-        if not re.search(r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\n]*)', query):
+        if not re.search(
+                r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\n]*)',
+                query):
             results = YoutubeSearch(query, max_results=1).to_dict()
             content = f"https://www.youtube.com/watch?v={results[0]['id']}"
 
             log.debug(results[0])
             log.debug(content)
-            # results[0] = {'id': 'id', 'thumbnails': ['https://i.ytimg.com/vi/id/hqdefault.jpg'], 'title': 'title', 'duration': 'duration', 'views': 'views', 'channel': 'channel', 'channel_id': 'channel_id', 'url_suffix': 'url_suffix', 'long_desc': 'long_desc'}
 
             title = results[0]['title']
             # change mm:ss duration to seconds
@@ -48,13 +50,12 @@ class Other(commands.Cog):
             duration = int(duration[0]) * 60 + int(duration[1])
             duration = f"{str(duration // 60)}:{str(duration % 60).zfill(2)}"
 
-            views = re.sub(r'\D', '', results[0]['views']) # Remove all non-digits from views
+            views = re.sub(r'\D', '', results[0]['views'])  # Remove all non-digits from views
             channel = results[0]['channel']
             url = content
             thumbnail = results[0]['thumbnails'][0]
 
-
-        else:   # If it is a Valid YT URL
+        else:  # If it is a Valid YT URL
 
             with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
                 try:
