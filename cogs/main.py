@@ -24,5 +24,9 @@ class Main(discord.Cog):
             password=wavelink_password
         )
 
+    @commands.Cog.listener()
+    async def on_wavelink_node_ready(self, node: wavelink.Node):
+        log.info(f"{node.identifier} is ready.")  # print a message
+
 def setup(client):
     client.add_cog(Main(client))
