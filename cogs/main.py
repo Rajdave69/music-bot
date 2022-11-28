@@ -69,6 +69,18 @@ class Main(discord.Cog):
 
             await ctx.respond(embed=embed)
 
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, player: wavelink.Player, track: wavelink.Track, reason):
+        if reason == "FINISHED":
+            try:
+                await player.play(player.queue.get())
+            except wavelink.QueueEmpty:
+                await player.disconnect()
+        # possible reasons: FINISHED, LOAD_FAILED, STOPPED, REPLACED, CLEANUP
+        # load_failed = track failed to load
+        # stopped = track was stopped
+        # replaced = track was replaced
+        # cleanup = player was destroyed
 
 def setup(client):
     client.add_cog(Main(client))
