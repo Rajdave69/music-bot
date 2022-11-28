@@ -8,7 +8,6 @@ from backend import wavelink_host, wavelink_password, wavelink_port, embed_foote
 class Main(discord.Cog):
     def __init__(self, client):
         self.client = client
-        self.queue = {}
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -31,10 +30,6 @@ class Main(discord.Cog):
     @commands.slash_command()
     async def play(self, ctx, song: str):
         vc = ctx.voice_client
-        guild = ctx.guild.id
-
-        if guild not in self.queue:
-            self.queue[guild] = []
 
         if not vc:
             try:
@@ -67,11 +62,9 @@ class Main(discord.Cog):
             await ctx.respond(embed=embed)
 
         else:
-            if guild not in self.queue:
-                self.queue[guild] = []
-            self.queue[guild].append(song)
+            vc.queue.put(song)
 
-            embed.add_field(name="Position in Queue", value=f"{len(self.queue[guild]) + 1}", inline=True)
+            embed.add_field(name="Position in Queue", value=f"{vc.queue.count + 1}", inline=True)
             embed.fields[0].name = "Added to Queue"
 
             await ctx.respond(embed=embed)
