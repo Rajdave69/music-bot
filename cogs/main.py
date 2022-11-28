@@ -82,5 +82,85 @@ class Main(discord.Cog):
         # replaced = track was replaced
         # cleanup = player was destroyed
 
+    @commands.slash_command()
+    async def skip(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("I am not connected to a voice channel.")
+
+        if not vc.is_playing():
+            return await ctx.respond("I am not playing anything.")
+
+        # play the next song from the queue
+        if vc.queue.count > 0:
+            await vc.play(vc.queue.pop(0))
+            await ctx.respond("Skipped the current song.")
+        else:
+            await ctx.respond("There are no more songs in the queue.")
+
+    @commands.slash_command()
+    async def stop(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("I am not connected to a voice channel.")
+
+        if not vc.is_playing():
+            return await ctx.respond("I am not playing anything.")
+
+        await vc.stop()
+        await vc.disconnect()
+        vc.queue.clear()
+
+    @commands.slash_command()
+    async def volume(self, ctx, volume: int):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("I am not connected to a voice channel.")
+
+        if not vc.is_playing():
+            return await ctx.respond("I am not playing anything.")
+
+        await vc.set_volume(volume)
+        await ctx.respond(f"Set the volume to {volume}.")
+
+    @commands.slash_command()
+    async def queue(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("I am not connected to a voice channel.")
+
+        if not vc.is_playing():
+            return await ctx.respond("I am not playing anything.")
+
+        if vc.queue.count == 0:
+            return await ctx.respond("There are no more songs in the queue.")
+
+        embed = discord.Embed(title="Music Queue")
+        embed.set_footer(text=embed_footer)
+
+        for i, song in enumerate(vc.queue):
+            duration = datetime.timedelta(seconds=song.duration)
+            embed.add_field(name=f"{i + 1}. `{song.title}`", value=f"Duration: {str(duration)[2:]}", inline=False)
+
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(name="resume")
+    @commands.slash_command(name="pause")
+    async def pauseresume(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("I am not connected to a voice channel.")
+
+        if not vc.is_playing():
+            return await ctx.respond("I am not playing anything.")
+
+        await vc.set_pause(not vc.paused)
+        await ctx.respond("Paused the music.")
+
 def setup(client):
     client.add_cog(Main(client))
