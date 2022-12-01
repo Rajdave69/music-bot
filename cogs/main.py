@@ -2,12 +2,17 @@ import datetime
 import discord
 from discord.ext import commands
 import wavelink
-from backend import wavelink_host, wavelink_password, wavelink_port, embed_footer, log
+from backend import wavelink_host, wavelink_password, wavelink_port, embed_footer, log, embed_color, embed_url, \
+    embed_header
+import aiohttp
+import sqlite3
 
 
 class Main(discord.Cog):
     def __init__(self, client):
         self.client = client
+        self.con = sqlite3.connect("./data/data.db")
+        self.cur = self.con.cursor()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -39,31 +44,37 @@ class Main(discord.Cog):
         song = await wavelink.YouTubeTrack.search(song, return_first=True)
 
         if song.is_stream():
-            return await ctx.respond("Streams are not supported.")
+            await ctx.respond("Streams are not supported.")
+            vc.disconnect()
+            return
 
         if song.duration > 600:
-            return await ctx.respond("Songs longer than 10 minutes are not supported.")
+            await ctx.respond("Songs longer than 10 minutes are not supported.")
+            vc.disconnect()
+            return
 
         duration = datetime.timedelta(seconds=song.duration)
 
         embed = discord.Embed(title="Music")
         embed.add_field(name="Now Playing", value=f"[{song.title}]({song.uri})")
         embed.add_field(name="Duration", value=f"{str(duration)[2:]}", inline=False)
-        embed.set_image(url=song.thumbnail)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(song.thumbnail) as resp:
+                if resp.status == 200:
+                    embed.set_image(url=song.thumbnail)
+                else:
+                    embed.set_image(url=song.thumbnail[:14] + "hqdefault.jpg")
         embed.set_footer(text=embed_footer)
 
         if not vc.is_playing():
             await vc.play(song)
-            embed.add_field(name="Position in Queue", value=f"1", inline=True)
-            await ctx.respond(embed=embed)
 
         else:
             vc.queue.put(song)
-
-            embed.add_field(name="Position in Queue", value=f"{vc.queue.count + 1}", inline=True)
             embed.fields[0].name = "Added to Queue"
 
-            await ctx.respond(embed=embed)
+        embed.add_field(name="Position in Queue", value=f"{vc.queue.count}", inline=True)
+        await ctx.respond(embed=embed)
 
     @commands.slash_command()
     async def skip(self, ctx):
@@ -77,7 +88,8 @@ class Main(discord.Cog):
 
         # play the next song from the queue
         if vc.queue.count > 0:
-            await vc.play(vc.queue.pop(0))
+            # seek the current song to the end
+            await vc.seek(vc.source.length-1)
             await ctx.respond("Skipped the current song.")
         else:
             await ctx.respond("There are no more songs in the queue.")
@@ -106,10 +118,15 @@ class Main(discord.Cog):
         if not vc.is_playing():
             return await ctx.respond("I am not playing anything.")
 
+        if 0 < volume > 100:
+            await vc.set_volume(volume / 100)
+            await ctx.respond(f"Set the volume to {volume}%")
+
         await vc.set_volume(volume)
         await ctx.respond(f"Set the volume to {volume}.")
 
-    @commands.slash_command()
+    @commands.slash_command(name="currentplaying")
+    @commands.slash_command(name="queue")
     async def queue(self, ctx):
         vc = ctx.voice_client
 
@@ -119,11 +136,11 @@ class Main(discord.Cog):
         if not vc.is_playing():
             return await ctx.respond("I am not playing anything.")
 
-        if vc.queue.count == 0:
-            return await ctx.respond("There are no more songs in the queue.")
 
         embed = discord.Embed(title="Music Queue")
         embed.set_footer(text=embed_footer)
+
+        embed.add_field(name="Now Playing", value=f"[{vc.source.title}]({vc.source.uri})")
 
         for i, song in enumerate(vc.queue):
             duration = datetime.timedelta(seconds=song.duration)
@@ -133,7 +150,7 @@ class Main(discord.Cog):
 
     @commands.slash_command(name="resume")
     @commands.slash_command(name="pause")
-    async def pauseresume(self, ctx):
+    async def pause_resume(self, ctx):
         vc = ctx.voice_client
 
         if not vc:
@@ -143,7 +160,7 @@ class Main(discord.Cog):
             return await ctx.respond("I am not playing anything.")
 
         await vc.set_pause(not vc.paused)
-        await ctx.respond("Paused the music.")
+        await ctx.respond("Paused/Resumed the music.")
 
     @commands.slash_command()
     async def filter(self, ctx,
@@ -157,7 +174,7 @@ class Main(discord.Cog):
                          discord.OptionChoice("Rotation", value="Rotation"),
                          discord.OptionChoice("Distortion", value="Distortion"),
                          discord.OptionChoice("ChannelMix", value="ChannelMix"),
-                         discord.OptionChoice("LowPass", value="LowPass"),
+                         discord.OptionChoice("LowPass", value="LowPass")
                      ])
                      ):
         vc = ctx.voice_client
