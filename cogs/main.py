@@ -125,8 +125,7 @@ class Main(discord.Cog):
         await vc.set_volume(volume)
         await ctx.respond(f"Set the volume to {volume}.")
 
-    @commands.slash_command(name="currentplaying")
-    @commands.slash_command(name="queue")
+    @commands.slash_command(name="queue", aliases=['currentplaying'])
     async def queue(self, ctx):
         vc = ctx.voice_client
 
