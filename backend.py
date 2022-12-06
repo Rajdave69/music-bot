@@ -1,6 +1,7 @@
 import configparser
 import sqlite3
 import sys
+import aiosqlite
 import discord
 import logging
 from discord.ext import commands
@@ -60,10 +61,11 @@ log = colorlogger()
 client = commands.Bot(intents=intents)  # Setting prefix
 
 
-def get_user_playlists(ctx: discord.AutocompleteContext):
+async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or None]:
     con = sqlite3.connect('data/data.db')
     cur = con.cursor()
-    cur.execute(f"SELECT name FROM playlists WHERE author = {ctx.interaction.author.id}")
+    cur.execute(f"SELECT name FROM playlists WHERE author = {ctx.interaction.user.id}")
     res = cur.fetchall()
-    print(res)
-    return list(res)
+    return list({x[0] for x in res}) if res else []
+
+
