@@ -89,7 +89,7 @@ class Main(discord.Cog):
         # play the next song from the queue
         if vc.queue.count > 0:
             # seek the current song to the end
-            await vc.seek(vc.source.length-1)
+            await vc.stop()
             await ctx.respond("Skipped the current song.")
         else:
             await ctx.respond("There are no more songs in the queue.")
@@ -104,7 +104,6 @@ class Main(discord.Cog):
         if not vc.is_playing():
             return await ctx.respond("I am not playing anything.")
 
-        await vc.stop()
         await vc.disconnect()
         vc.queue.clear()
 
