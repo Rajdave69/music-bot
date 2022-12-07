@@ -21,6 +21,7 @@ class Playlists(commands.Cog):
             autocomplete=get_user_playlists
             )
     async def add(self, ctx, playlist):
+        await ctx.defer()
         vc = ctx.voice_client
 
         if not vc:
@@ -35,7 +36,7 @@ class Playlists(commands.Cog):
         self.cur.execute("SELECT * FROM playlists WHERE name = ? AND song = ?",
                          (playlist, ctx.voice_client.source.uri))
         if self.cur.fetchone():
-            await ctx.respond("This song is already in the playlist.")
+            await ctx.followup.send("This song is already in the playlist.")
             return
 
         self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?)", (ctx.author.id, playlist, vc.source.uri))
@@ -43,7 +44,7 @@ class Playlists(commands.Cog):
         embed = discord.Embed(title="Playlist", description=f"Song added to `{playlist}`.",
                               url=embed_url, color=embed_color)
         embed.set_footer(text=embed_footer)
-        await ctx.respond(embed=embed)
+        await ctx.followup.send(embed=embed)
 
     @playlists.command()
     @option("playlist",
@@ -51,13 +52,14 @@ class Playlists(commands.Cog):
             autocomplete=get_user_playlists
             )
     async def delete(self, ctx, name):
+        await ctx.defer()
         self.cur.execute("DELETE FROM playlists WHERE name = ? AND author = ?", (name, ctx.author.id))
         self.con.commit()
 
         embed = discord.Embed(title="Playlist", description=f"Playlist `{name}` deleted.",
                               url=embed_url, color=embed_color)
         embed.set_footer(text=embed_footer)
-        await ctx.respond(embed=embed)
+        await ctx.followup.send(embed=embed)
 
     @playlists.command()
     @option("playlist",
@@ -82,11 +84,12 @@ class Playlists(commands.Cog):
             autocomplete=get_user_playlists
             )
     async def play(self, ctx, playlist: str, shuffle: bool = False):
+        await ctx.defer()
         if not ctx.voice_client:
             try:
                 await ctx.author.voice.channel.connect(cls=wavelink.Player)
             except AttributeError:
-                return await ctx.respond("You are not connected to a voice channel.")
+                return await ctx.followup.send("You are not connected to a voice channel.")
 
         self.cur.execute("SELECT song FROM playlists WHERE name = ? AND author = ?", (playlist.strip(), ctx.author.id))
         songs = self.cur.fetchall()
@@ -94,12 +97,12 @@ class Playlists(commands.Cog):
             random.shuffle(songs)
 
         for song in songs:
-            song = await wavelink.YouTubeTrack.search(song[0], return_first=True)
+            song = await wavelink.YouTubeTrack.search(song[0], return_first=True)    # TODO: Implement use of partial-track object from wavelink
             if not ctx.voice_client.is_playing():
                 await ctx.voice_client.play(song)
             else:
                 ctx.voice_client.queue.put(song)
-        await ctx.respond(f"Added {len(songs)} songs to the queue.")
+        await ctx.followup.send(f"Added {len(songs)} songs to the queue.")
 
     @playlists.command()
     async def remove(self, ctx, playlist):

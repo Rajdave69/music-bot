@@ -40,7 +40,7 @@ except Exception as err:
 
 
 # Initializing the logger
-def colorlogger(name='moonball'):
+def colorlogger(name='music-bot'):
     from colorlog import ColoredFormatter
     logger = logging.getLogger(name)
     stream = logging.StreamHandler()
@@ -67,5 +67,3 @@ async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or No
     cur.execute("SELECT name FROM playlists WHERE author = ?", (ctx.interaction.user.id,))
     res = cur.fetchall()
     return list({x[0] for x in res}) if res else []
-
-
