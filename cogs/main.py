@@ -134,7 +134,6 @@ class Main(discord.Cog):
         if not vc.is_playing():
             return await ctx.respond("I am not playing anything.")
 
-
         embed = discord.Embed(title="Music Queue")
         embed.set_footer(text=embed_footer)
 
