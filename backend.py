@@ -64,7 +64,7 @@ client = commands.Bot(intents=intents)  # Setting prefix
 async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or None]:
     con = sqlite3.connect('data/data.db')
     cur = con.cursor()
-    cur.execute(f"SELECT name FROM playlists WHERE author = {ctx.interaction.user.id}")
+    cur.execute("SELECT name FROM playlists WHERE author = ?", (ctx.interaction.user.id,))
     res = cur.fetchall()
     return list({x[0] for x in res}) if res else []
 
