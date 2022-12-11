@@ -1,7 +1,7 @@
 import sqlite3
 import discord
 from discord.ext import commands
-from backend import log, embed_footer, embed_color, embed_url
+from backend import log, embed_footer, embed_color, embed_url, is_owner
 
 
 class Owners(commands.Cog):
@@ -10,13 +10,9 @@ class Owners(commands.Cog):
 
     owners = discord.SlashCommandGroup("owners", "Owner commands")
 
-    # create a command check
-    def is_owner(self, ctx):
-        return ctx.author.id in [837584356988944396]
-
     @owners.command()
     async def reload(self, ctx, cog):
-        if not self.is_owner(ctx):
+        if not is_owner(ctx):
             await ctx.respond("You are not the bot owner.")
             return
 
@@ -28,7 +24,7 @@ class Owners(commands.Cog):
 
     @owners.command()
     async def load(self, ctx, cog):
-        if not self.is_owner(ctx):
+        if not is_owner(ctx):
             await ctx.respond("You are not the bot owner.")
             return
 
@@ -40,7 +36,7 @@ class Owners(commands.Cog):
 
     @owners.command()
     async def exec_sql(self, ctx, sql: str):
-        if not self.is_owner(ctx):
+        if not is_owner(ctx):
             await ctx.respond("You are not the bot owner.")
             return
 
