@@ -36,9 +36,10 @@ class Listeners(commands.Cog):
         elif isinstance(error, commands.NoPrivateMessage):
             await ctx.respond("This command cannot be used in a DM.")
 
-        log.error(f"Command {ctx.command.name} failed with error {error}")
+        log.error(f"Command {ctx.command.name} failed with error: {error}")
 
-        raise error
+        if raise_errors:
+            raise error
 
 
 def setup(client):
