@@ -21,6 +21,7 @@ except Exception as e:
 try:
     log_level: str = config.get('general', 'log_level')
     presence: str = config.get('general', 'presence')
+    owner_ids: list = config.get('general', 'owner_ids').strip().split(',')
 
     embed_footer: str = config.get('discord', 'embed_footer')
     embed_header: str = config.get('discord', 'embed_header')
