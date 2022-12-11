@@ -25,6 +25,21 @@ class Listeners(commands.Cog):
         # replaced = track was replaced
         # cleanup = player was destroyed
 
+    @commands.Cog.listener()
+    async def on_application_command_error(self, ctx: discord.ApplicationContext, error: Exception):
+        # if isinstance(error, commands.CommandNotFound):
+        #     await ctx.send("Command not found.")
+        if isinstance(error, NoVC):
+            await ctx.respond("You are not in a voice channel.")
+        elif isinstance(error, NotPlaying):
+            await ctx.respond("I am not playing anything.")
+        elif isinstance(error, commands.NoPrivateMessage):
+            await ctx.respond("This command cannot be used in a DM.")
+
+        log.error(f"Command {ctx.command.name} failed with error {error}")
+
+        raise error
+
 
 def setup(client):
     client.add_cog(Listeners(client))
