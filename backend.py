@@ -1,5 +1,4 @@
 import configparser
-import sqlite3
 import sys
 import aiosqlite
 import discord
@@ -58,13 +57,47 @@ def colorlogger(name='music-bot'):
 
 log = colorlogger()
 
-
-client = commands.Bot(intents=intents)  # Setting prefix
+client = commands.Bot(intents=intents)  # Creating the Bot
 
 
 async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or None]:
-    con = sqlite3.connect('data/data.db')
-    cur = con.cursor()
-    cur.execute("SELECT name FROM playlists WHERE author = ?", (ctx.interaction.user.id,))
-    res = cur.fetchall()
-    return list({x[0] for x in res}) if res else []
+    async with aiosqlite.connect('data/data.db') as db:
+        async with db.execute("SELECT name FROM playlists WHERE author = ?", (ctx.interaction.user.id,)) as cursor:
+            playlists = await cursor.fetchall()
+
+            if not playlists:
+                return []
+
+            return list({x[0] for x in playlists}) if playlists else []
+
+
+def is_owner(ctx: commands.Context) -> bool:
+    return ctx.author.id in owner_ids
+
+
+class NoVC(Exception):
+    pass
+
+
+class NotPlaying(Exception):
+    pass
+
+
+async def vc_exists(ctx):
+    if not ctx.voice_client:
+        raise NoVC
+
+    if not ctx.voice_client.is_playing():
+        raise NotPlaying
+
+    if ctx.guild is None:
+        raise commands.NoPrivateMessage
+
+
+embed_template = discord.Embed(color=embed_color, url=embed_url)
+embed_template.set_footer(text=embed_footer)
+embed_template.set_author(name=embed_header, icon_url=embed_icon)
+
+error_template = discord.Embed(color=discord.Color.red(), url=embed_url)
+error_template.set_footer(text=embed_footer)
+error_template.set_author(name=embed_header, icon_url=embed_icon)
