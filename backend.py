@@ -73,7 +73,7 @@ async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or No
 
 
 def is_owner(ctx: commands.Context) -> bool:
-    return ctx.author.id in owner_ids
+    return str(ctx.author.id) in owner_ids
 
 
 class NoVC(Exception):
