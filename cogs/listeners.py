@@ -26,6 +26,19 @@ class Listeners(commands.Cog):
         # cleanup = player was destroyed
 
     @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        if member.bot:
+            return
+        vc = member.guild.voice_client
+
+        # If the user leaves the VC
+        if after.channel is None:
+
+            # And the VC is empty (Except for the bot)
+            if len(before.channel.members) == 1:
+                await vc.disconnect()
+
+    @commands.Cog.listener()
     async def on_application_command_error(self, ctx: discord.ApplicationContext, error: Exception):
         # if isinstance(error, commands.CommandNotFound):
         #     await ctx.send("Command not found.")
