@@ -1,9 +1,10 @@
 import random
 import sqlite3
+import string
 import discord
 import wavelink
 from discord.ext import commands
-from backend import log, embed_footer, embed_color, embed_url, get_user_playlists
+from backend import log, embed_footer, embed_color, embed_url, get_user_playlists, vc_exists
 from discord.commands import option
 
 
@@ -13,9 +14,79 @@ class Playlists(commands.Cog):
         self.con = sqlite3.connect("./data/data.db")
         self.cur = self.con.cursor()
 
+        """
+        DB Structure:
+
+        Table: playlists
+         │
+         ├─► id, TEXT, NOT NULL, UNIQUE
+         │─► author, INTEGER, NOT NULL
+         │─► name, INTEGER, NOT NULL
+         │─► visibility, INTEGER, NOT NULL, DEFAULT=0
+         └─► listens, INTEGER, NOT NULL, DEFAULT=0
+
+        Table: playlist_data
+         │
+         ├─► id, TEXT, NOT NULL
+         └─► song, TEXT, NOT NULL
+        
+        """
+
     playlists = discord.SlashCommandGroup("playlist", "Playlist commands")
 
     @playlists.command()
+    async def create(self, ctx, name: str,
+                     playlist_visibility: discord.Option(choices=[
+                         discord.OptionChoice(name="Private", value="0"),
+                         discord.OptionChoice(name="Public", value="1")
+                     ])
+                     ):
+        # remove unicode characters and allow only a-z, A-Z, 0-9, and _ in playlist names
+        if not name.isalnum() and not name.replace("-", "").replace("_", "").isalnum():
+
+            # noinspection PyCompatibility
+            if (better_name := ''.join(e for e in name if e.isalnum() or e == '_')) == "":
+                await ctx.respond("Playlist names can only contain letters, numbers, and underscores.")
+            else:
+                await ctx.respond("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
+                                  f"Use `{better_name}` instead?")
+
+            return
+
+        # Check if the name is too small or too big
+        if 3 > len(name) > 32:
+            await ctx.respond("Playlist names must be from 3 to 32 characters long.")
+            return
+
+        # Check if the user already has a playlist with that name
+        if name in await get_user_playlists(ctx.author.id):
+            await ctx.respond("You already have a playlist with that name.")
+            return
+
+        # Create a Unique ID for the playlist, and add it to the database
+        id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
+        try:
+            self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?)",
+                             (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility)))
+
+        # If the ID already exists (The chance of this happening is 1 in 36^8!)
+        except sqlite3.IntegrityError:
+
+            while True:
+                id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
+                try:
+                    self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?)",
+                                     (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility)))
+                    break
+
+                # If the ID already exists AGAIN (The chance of this happening is 1 in 36^16!)
+                except sqlite3.IntegrityError:
+                    continue
+
+        self.con.commit()
+        await ctx.respond(f"Created playlist `{name.lower().strip()}`.")
     @option("playlist",
             description="The playlist to play.",
             autocomplete=get_user_playlists
