@@ -3,8 +3,7 @@ import discord
 from discord.ext import commands
 import wavelink
 from backend import wavelink_host, wavelink_password, wavelink_port, embed_footer, log, embed_color, embed_url, \
-    embed_header
-import aiohttp
+    embed_header, vc_exists
 import sqlite3
 
 
@@ -53,17 +52,17 @@ class Main(discord.Cog):
             vc.disconnect()
             return
 
+        if not song:
+            await ctx.respond("No songs found.")
+            vc.disconnect()
+            return
+
         duration = datetime.timedelta(seconds=song.duration)
 
         embed = discord.Embed(title="Music")
-        embed.add_field(name="Now Playing", value=f"[{song.title}]({song.uri})")
-        embed.add_field(name="Duration", value=f"{str(duration)[2:]}", inline=False)
-        async with aiohttp.ClientSession() as session:
-            async with session.get(song.thumbnail) as resp:
-                if resp.status == 200:
-                    embed.set_image(url=song.thumbnail)
-                else:
-                    embed.set_image(url=song.thumbnail[:14] + "hqdefault.jpg")
+        embed.add_field(name="Now Playing", value=f"[{song.title}]({song.uri})", inline=False)
+        embed.add_field(name="Duration", value=f"{str(duration)[2:]}", inline=True)
+        embed.set_image(url=song.thumbnail)
         embed.set_footer(text=embed_footer)
 
         if not vc.is_playing():
