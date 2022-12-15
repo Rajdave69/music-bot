@@ -1,14 +1,14 @@
 import sqlite3
 import discord
 from discord.ext import commands
-from backend import log, embed_footer, embed_color, embed_url, is_owner
+from backend import log, embed_footer, embed_color, embed_url, is_owner, owner_guilds
 
 
 class Owners(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    owners = discord.SlashCommandGroup("owners", "Owner commands")
+    owners = discord.SlashCommandGroup("owners", "Owner commands", guild_ids=owner_guilds)
 
     @owners.command()
     async def reload(self, ctx, cog):
@@ -57,6 +57,19 @@ class Owners(commands.Cog):
 
         except Exception as e:
             await ctx.respond(f"Failed to execute SQL.\n{e}")
+
+    @owners.command()
+    async def guilds(self, ctx):
+        if not is_owner(ctx):
+            await ctx.respond("You are not the bot owner.")
+            return
+
+        embed = discord.Embed(title="Guilds", description=f"Guilds the bot is in.",
+                              url=embed_url, color=embed_color)
+        for guild in self.client.guilds:
+            embed.add_field(name=guild.name, value=guild.id, inline=False)
+        embed.set_footer(text=embed_footer)
+        await ctx.respond(embed=embed)
 
 
 def setup(client):
