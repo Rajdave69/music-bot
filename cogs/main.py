@@ -2,9 +2,10 @@ import datetime
 import discord
 from discord.ext import commands
 import wavelink
-from backend import wavelink_host, wavelink_password, wavelink_port, embed_footer, log, embed_color, embed_url, \
-    embed_header, vc_exists
+from backend import wavelink_host, wavelink_password, wavelink_port, log, vc_exists, embed_template, \
+    owner_ids, error_template
 import sqlite3
+import discord.ext.pages
 
 
 class Main(discord.Cog):
@@ -44,17 +45,18 @@ class Main(discord.Cog):
 
         if song.is_stream():
             await ctx.respond("Streams are not supported.")
-            vc.disconnect()
+            await vc.disconnect()
             return
 
         if song.duration > 600:
-            await ctx.respond("Songs longer than 10 minutes are not supported.")
-            vc.disconnect()
-            return
+            if ctx.author.id not in owner_ids:
+                await ctx.respond("Songs longer than 10 minutes are not supported.")
+                await vc.disconnect()
+                return
 
         if not song:
             await ctx.respond("No songs found.")
-            vc.disconnect()
+            await vc.disconnect()
             return
 
         duration = datetime.timedelta(seconds=song.duration)
