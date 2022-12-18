@@ -4,6 +4,7 @@ import aiosqlite
 import discord
 import logging
 from discord.ext import commands
+import copy
 
 intents = discord.Intents.default()
 
@@ -76,29 +77,23 @@ def is_owner(ctx: commands.Context) -> bool:
     return str(ctx.author.id) in owner_ids
 
 
-class NoVC(Exception):
-    pass
-
-
-class NotPlaying(Exception):
-    pass
-
-
 async def vc_exists(ctx):
-    if not ctx.voice_client:
-        raise NoVC
-
-    if not ctx.voice_client.is_playing():
-        raise NotPlaying
-
     if ctx.guild is None:
         raise commands.NoPrivateMessage
 
+    if not ctx.voice_client:
+        embed = error_template.copy()
+        embed.description = "I am not connected to a voice channel or playing anything."
+        await ctx.respond(embed=embed)
 
-embed_template = discord.Embed(color=embed_color, url=embed_url)
-embed_template.set_footer(text=embed_footer)
-embed_template.set_author(name=embed_header, icon_url=embed_icon)
+    elif not ctx.voice_client.is_playing():
+        embed = error_template.copy()
+        embed.description = "I am not playing anything."
+        await ctx.respond(embed=embed)
 
-error_template = discord.Embed(color=discord.Color.red(), url=embed_url)
-error_template.set_footer(text=embed_footer)
-error_template.set_author(name=embed_header, icon_url=embed_icon)
+
+embed_template = discord.Embed(title="Music", color=embed_color, url=embed_url)
+embed_template.set_footer(text=embed_footer, icon_url=embed_icon)
+
+error_template = discord.Embed(title="Error", color=discord.Color.red(), url=embed_url)
+error_template.set_footer(text=embed_footer, icon_url=embed_icon)
