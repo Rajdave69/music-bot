@@ -23,6 +23,7 @@ try:
     presence: str = config.get('general', 'presence')
     raise_errors: bool = config.getboolean('general', 'raise_errors')
     owner_ids: list = config.get('general', 'owner_ids').strip().split(',')
+    owner_guilds: list = config.get('general', 'owner_guilds').strip().split(',')
 
     embed_footer: str = config.get('discord', 'embed_footer')
     embed_header: str = config.get('discord', 'embed_header')
