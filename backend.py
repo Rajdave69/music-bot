@@ -78,7 +78,7 @@ def is_owner(ctx: commands.Context) -> bool:
     return str(ctx.author.id) in owner_ids
 
 
-async def vc_exists(ctx):
+async def vc_exists(ctx) -> bool:
     if ctx.guild is None:
         raise commands.NoPrivateMessage
 
@@ -91,6 +91,22 @@ async def vc_exists(ctx):
         embed = error_template.copy()
         embed.description = "I am not playing anything."
         await ctx.respond(embed=embed)
+
+    return True
+
+
+async def playlist_exists(ctx, playlist_name) -> bool:
+    async with aiosqlite.connect('data/data.db') as db:
+        async with db.execute("SELECT name FROM playlists WHERE author = ? AND name = ?",
+                              (ctx.interaction.user.id, playlist_name)) as cursor:
+            playlist = await cursor.fetchone()
+
+            if not playlist:
+                embed = error_template.copy()
+                embed.description = f"Playlist `{playlist_name}` does not exist."
+                await ctx.respond(embed=embed)
+
+    return True
 
 
 embed_template = discord.Embed(title="Music", color=embed_color, url=embed_url)
