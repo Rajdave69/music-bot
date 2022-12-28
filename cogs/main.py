@@ -49,7 +49,8 @@ class Main(discord.Cog):
             return
 
         if song.duration > 600:
-            if ctx.author.id not in owner_ids:
+            print(ctx.author.id, owner_ids)
+            if str(ctx.author.id) not in owner_ids:
                 await ctx.respond("Songs longer than 10 minutes are not supported.")
                 await vc.disconnect()
                 return
