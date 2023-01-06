@@ -13,6 +13,18 @@ class Listeners(commands.Cog):
         log.info(f"{node.identifier} is ready.")  # print a message
 
     @commands.Cog.listener()
+    async def on_ready(self):
+        log.info("Cog: Listeners.py Loaded")
+
+        self.get_member_count.start()
+
+        while not self.member_count > -1:
+            await asyncio.sleep(1)
+
+        log.info(f"I am in {len(self.client.guilds)} guilds. They have {self.member_count} members.")
+        self.random_status.start()
+
+    @commands.Cog.listener()
     async def on_wavelink_track_end(self, player: wavelink.Player, track: wavelink.Track, reason):
         if reason == "FINISHED":
             try:
