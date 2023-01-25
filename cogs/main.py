@@ -64,11 +64,15 @@ class Main(discord.Cog):
 
         duration = datetime.timedelta(seconds=song.duration)
 
-        embed = discord.Embed(title="Music")
-        embed.add_field(name="Now Playing", value=f"[{song.title}]({song.uri})", inline=False)
+        embed = embed_template()
+        embed.title = "Now Playing"
+        embed.description = f"[{song.title}]({song.uri})"
         embed.add_field(name="Duration", value=f"{str(duration)[2:]}", inline=True)
-        embed.set_image(url=song.thumbnail)
-        embed.set_footer(text=embed_footer)
+        embed.add_field(name="Requested by", value=ctx.author.mention, inline=True)
+
+        thumbnail = f"https://img.youtube.com/vi/{song.identifier}/mqdefault.jpg"
+        log.debug(thumbnail)
+        embed.set_image(url=thumbnail)
 
         if not vc.is_playing():
             await vc.play(song)
@@ -77,7 +81,7 @@ class Main(discord.Cog):
             vc.queue.put(song)
             embed.fields[0].name = "Added to Queue"
 
-        embed.add_field(name="Position in Queue", value=f"{vc.queue.count}", inline=True)
+        embed.add_field(name="Queue Position", value=f"{vc.queue.count}", inline=True)
         await ctx.respond(embed=embed)
 
     @commands.slash_command()
