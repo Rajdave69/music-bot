@@ -164,16 +164,7 @@ class Main(discord.Cog):
         await ctx.respond("Paused/Resumed the music.")
 
     @commands.slash_command()
-    async def filter(self, ctx,
-                     filter_: discord.Option(choices=[
-                         discord.OptionChoice(name="Clear", value="clear"),
-                         discord.OptionChoice("BaseBoost", value="BaseFilter"),
-                         discord.OptionChoice("Karaoke", value="Karaoke"),
-                         discord.OptionChoice("Timescale", value="Timescale"),
-                         discord.OptionChoice("Tremolo", value="Tremolo"),
-                         discord.OptionChoice("Vibrato", value="Vibrato"),
-                         discord.OptionChoice("Rotation", value="Rotation"),
-                         discord.OptionChoice("Distortion", value="Distortion"),
+    async def shuffle(self, ctx):  # TODO: test this
                          discord.OptionChoice("ChannelMix", value="ChannelMix"),
                          discord.OptionChoice("LowPass", value="LowPass")
                      ])
@@ -186,28 +177,11 @@ class Main(discord.Cog):
         if not vc.is_playing():
             return await ctx.respond("I am not playing anything.")
 
-        match filter_:
-            case "clear":
-                await vc.set_filter(None)
-                await ctx.respond("Cleared the filter.")
-            case "BaseFilter":
-                await vc.set_filter(wavelink.filters.BaseFilter())
-            case "Karaoke":
-                await vc.set_filter(wavelink.filters.Karaoke())
-            case "Timescale":
-                await vc.set_filter(wavelink.filters.Timescale())
-            case "Tremolo":
-                await vc.set_filter(wavelink.filters.Tremolo())
-            case "Vibrato":
-                await vc.set_filter(wavelink.filters.Vibrato())
-            case "Rotation":
-                await vc.set_filter(wavelink.filters.Rotation())
-            case "Distortion":
-                await vc.set_filter(wavelink.filters.Distortion())
-            case "ChannelMix":
-                await vc.set_filter(wavelink.filters.ChannelMix())
-            case "LowPass":
-                await vc.set_filter(wavelink.filters.LowPass())
+    async def cog_check(self, ctx) -> bool:
+        """A local check which applies to all commands in this cog."""
+        if not ctx.guild:
+            raise commands.NoPrivateMessage
+        return True
 
 
 def setup(client):
