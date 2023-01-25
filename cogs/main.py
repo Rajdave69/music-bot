@@ -169,17 +169,25 @@ class Main(discord.Cog):
 
     @commands.slash_command()
     async def shuffle(self, ctx):  # TODO: test this
-                         discord.OptionChoice("ChannelMix", value="ChannelMix"),
-                         discord.OptionChoice("LowPass", value="LowPass")
-                     ])
-                     ):
         vc = ctx.voice_client
 
-        if not vc:
-            return await ctx.respond("I am not connected to a voice channel.")
+        if not await vc_exists(ctx):
+            return
+        song_list = []
 
-        if not vc.is_playing():
-            return await ctx.respond("I am not playing anything.")
+        for i in range(vc.queue.count):
+            song_list.append(vc.queue.get())
+
+        random.shuffle(song_list)
+        vc.queue.clear()
+
+        for song in song_list:
+            vc.queue.put(song)
+
+        embed = embed_template()
+        embed.title = "Shuffled"
+        embed.description = "Successfully shuffled the queue."
+        await ctx.respond(embed=embed)
 
     async def cog_check(self, ctx) -> bool:
         """A local check which applies to all commands in this cog."""
