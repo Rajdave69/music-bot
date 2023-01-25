@@ -154,18 +154,17 @@ class Main(discord.Cog):
         await ctx.respond(embed=embed)
 
     @commands.slash_command(name="resume")
-    @commands.slash_command(name="pause")
-    async def pause_resume(self, ctx):
+    async def resume(self, ctx):
         vc = ctx.voice_client
 
-        if not vc:
-            return await ctx.respond("I am not connected to a voice channel.")
+        if not await vc_exists(ctx):
+            return
+        await vc.set_pause(not vc.is_paused())
 
-        if not vc.is_playing():
-            return await ctx.respond("I am not playing anything.")
-
-        await vc.set_pause(not vc.paused)
-        await ctx.respond("Paused/Resumed the music.")
+        embed = embed_template()
+        embed.title = "Paused" if vc.is_paused() else "Resumed"
+        embed.description = f"Successfully {'paused' if vc.is_paused() else 'resumed'} the player."
+        await ctx.respond(embed=embed)
 
     @commands.slash_command()
     async def shuffle(self, ctx):  # TODO: test this
