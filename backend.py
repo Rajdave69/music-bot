@@ -64,14 +64,40 @@ client = commands.Bot(intents=intents)  # Creating the Bot
 
 
 async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or None]:
+    # get the current textbox (discord option)'s value
+    current_val = ctx.interaction.data['options'][0]['value'].lower()
+    print(current_val)
+
     async with aiosqlite.connect('data/data.db') as db:
+        if current_val:
+
+            # If it is a number, then it is a playlist id
+            if current_val[0].isdigit():
+                # select id from public playlist where id starts with current_val
+                async with db.execute("SELECT id, name FROM playlists WHERE id LIKE ? AND visibility = '1'",
+                                      (current_val + '%',)) as cursor:
+                    playlists = await cursor.fetchall()
+                    print(playlists)
+                    if playlists:
+                        return list({f"{x[0]} | {x[1]}" for x in playlists})
+
+            # If it is a letter, then it is a playlist name
+            else:
+                async with db.execute("SELECT name FROM playlists WHERE author = ? AND  name LIKE ?",
+                                      (ctx.interaction.user.id, current_val + '%')) as cursor:
+                    playlists = await cursor.fetchall()
+                    if playlists:
+                        return list({x[0] for x in playlists})
+
+            return []
+
         async with db.execute("SELECT name FROM playlists WHERE author = ?", (ctx.interaction.user.id,)) as cursor:
             playlists = await cursor.fetchall()
 
             if not playlists:
                 return []
 
-            return list({x[0] for x in playlists}) if playlists else []
+        return list({x[0] for x in playlists}) if playlists else []
 
 
 def is_owner(ctx: commands.Context) -> bool:
