@@ -37,6 +37,7 @@ class Main(discord.Cog):
         if not vc:
             try:
                 vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
+                await vc.set_volume(50)
             except AttributeError:
                 return await ctx.respond("You are not connected to a voice channel.")
 
