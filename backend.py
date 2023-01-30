@@ -136,3 +136,14 @@ error_template = discord.Embed(title="Error", color=discord.Color.red(), url=emb
 error_template.set_footer(text=embed_footer, icon_url=embed_icon)
 
 embed_template = lambda: _embed_template.copy()
+
+
+def error_template(description: str) -> discord.Embed:
+    _error_template = discord.Embed(
+        description=description,
+        color=0xff0000,
+        url=embed_url
+    )
+    _error_template.set_footer(text=embed_footer)
+
+    return _error_template.copy()
