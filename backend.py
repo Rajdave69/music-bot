@@ -4,7 +4,6 @@ import aiosqlite
 import discord
 import logging
 from discord.ext import commands
-import copy
 
 intents = discord.Intents.default()
 
@@ -105,18 +104,14 @@ def is_owner(ctx: commands.Context) -> bool:
 
 
 async def vc_exists(ctx) -> bool:
-    if ctx.guild is None:
+    if ctx.guild is None:  # todo check if the ctx.author is in the vc too
         raise commands.NoPrivateMessage
 
     if not ctx.voice_client:
-        embed = error_template.copy()
-        embed.description = "I am not connected to a voice channel or playing anything."
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=error_template("I am not connected to a voice channel or playing anything."))
 
     elif not ctx.voice_client.is_playing():
-        embed = error_template.copy()
-        embed.description = "I am not playing anything."
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=error_template("I am not playing anything."))
 
     return True
 
@@ -128,15 +123,16 @@ async def playlist_exists(ctx, playlist_name) -> bool:
             playlist = await cursor.fetchone()
 
             if not playlist:
-                embed = error_template.copy()
-                embed.description = f"Playlist `{playlist_name}` does not exist."
-                await ctx.respond(embed=embed)
+                await ctx.respond(embed=error_template(f"Playlist `{playlist_name}` does not exist."))
+                return False
 
     return True
 
 
-embed_template = discord.Embed(title="Music", color=embed_color, url=embed_url)
-embed_template.set_footer(text=embed_footer, icon_url=embed_icon)
+_embed_template = discord.Embed(title="Music", color=embed_color, url=embed_url)
+_embed_template.set_footer(text=embed_footer, icon_url=embed_icon)
 
 error_template = discord.Embed(title="Error", color=discord.Color.red(), url=embed_url)
 error_template.set_footer(text=embed_footer, icon_url=embed_icon)
+
+embed_template = lambda: _embed_template.copy()
