@@ -147,3 +147,9 @@ def error_template(description: str) -> discord.Embed:
     _error_template.set_footer(text=embed_footer)
 
     return _error_template.copy()
+
+
+async def increment_listens(playlist_id):
+    async with aiosqlite.connect('data/data.db') as db:
+        async with db.execute("UPDATE playlists SET listens = listens + 1 WHERE id = ?", (playlist_id,)):
+            await db.commit()
