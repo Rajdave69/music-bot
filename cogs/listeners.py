@@ -7,6 +7,7 @@ from backend import log
 class Listeners(commands.Cog):
     def __init__(self, client):
         self.client = client
+        self.member_count = -1
 
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node):
