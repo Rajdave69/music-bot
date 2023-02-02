@@ -10,6 +10,10 @@ class Owners(commands.Cog):
 
     owners = discord.SlashCommandGroup("owners", "Owner commands", guild_ids=owner_guilds)
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        log.info("Cog: Owners.py loaded.")
+
     @owners.command()
     async def reload(self, ctx, cog):
         if not is_owner(ctx):
