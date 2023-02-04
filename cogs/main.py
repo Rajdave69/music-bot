@@ -89,19 +89,23 @@ class Main(discord.Cog):
     async def skip(self, ctx):
         vc = ctx.voice_client
 
-        if not vc:
-            return await ctx.respond("I am not connected to a voice channel.")
-
-        if not vc.is_playing():
-            return await ctx.respond("I am not playing anything.")
+        if not await vc_exists(ctx):
+            return
 
         # play the next song from the queue
-        if vc.queue.count > 0:
-            # seek the current song to the end
-            await vc.stop()
-            await ctx.respond("Skipped the current song.")
+        if not vc.queue.is_empty:
+            # Seek the current song to the end
+            await vc.seek(vc.source.duration * 1000)
+
+            embed = embed_template()
+            embed.title = "Skipped"
+            embed.description = "Successfully skipped the current song."
+            embed.add_field(name="Next Song", value=f"`{vc.source.title}`", inline=False)   # TODO fix shows skipped song title
+
         else:
-            await ctx.respond("There are no more songs in the queue.")
+            embed = error_template("Could not skip the Current Song. There are no more songs in the queue.")
+
+        await ctx.respond(embed=embed)
 
     @commands.slash_command()
     async def stop(self, ctx):
