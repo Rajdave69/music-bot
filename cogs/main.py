@@ -111,14 +111,15 @@ class Main(discord.Cog):
     async def stop(self, ctx):
         vc = ctx.voice_client
 
-        if not vc:
-            return await ctx.respond("I am not connected to a voice channel.")
-
-        if not vc.is_playing():
-            return await ctx.respond("I am not playing anything.")
-
+        if not await vc_exists(ctx):
+            return
         await vc.disconnect()
-        vc.queue.clear()
+
+        embed = embed_template()
+        embed.title = "Disconnected"
+        embed.description = "Successfully disconnected from the voice channel."
+
+        await ctx.respond(embed=embed)
 
     @commands.slash_command()
     async def volume(self, ctx, volume: int):
