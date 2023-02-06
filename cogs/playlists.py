@@ -4,8 +4,25 @@ import string
 import discord
 import wavelink
 from discord.ext import commands
-from backend import log, embed_footer, embed_color, embed_url, get_user_playlists, vc_exists
+from backend import log, embed_footer, embed_color, embed_url, get_user_playlists, vc_exists, embed_template, \
+    error_template, increment_listens
 from discord.commands import option
+
+"""
+Cog Playlists:
+    This cog is responsible for handling all playlist related commands.
+    
+    Commands:
+        playlist create <name> <visibility> - Creates a new playlist
+        playlist delete <name> - Deletes a playlist
+        playlist add <name> - Adds a song to a playlist (currently, the current playing song)
+        playlist remove <name> - Removes a song from a playlist
+        playlist play <name/id> - Plays a playlist
+        playlist list <name/id> - Lists all songs in a playlist
+        playlist playlists - Lists all playlists
+        playlist info <name> - Shows info about a playlist
+
+"""
 
 
 class Playlists(commands.Cog):
