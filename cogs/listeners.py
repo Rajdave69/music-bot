@@ -1,7 +1,9 @@
+import asyncio
+import random
 import discord
 import wavelink
-from discord.ext import commands
-from backend import log
+from discord.ext import commands, tasks
+from backend import log, raise_errors
 
 
 class Listeners(commands.Cog):
@@ -31,6 +33,7 @@ class Listeners(commands.Cog):
             try:
                 await player.play(player.queue.get())
             except wavelink.QueueEmpty:
+                log.debug("Queue is empty, disconnecting.")
                 await player.disconnect()
         # possible reasons: FINISHED, LOAD_FAILED, STOPPED, REPLACED, CLEANUP
         # load_failed = track failed to load
