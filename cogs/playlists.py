@@ -51,6 +51,10 @@ class Playlists(commands.Cog):
 
     playlists = discord.SlashCommandGroup("playlist", "Playlist commands")
 
+    @commands.Cog.listener()
+    async def on_ready(self):
+        log.info("Cog: Playlists.py loaded.")
+
     @playlists.command()
     async def create(self, ctx, name: str,
                      playlist_visibility: discord.Option(choices=[
