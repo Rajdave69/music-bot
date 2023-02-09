@@ -67,29 +67,37 @@ class Playlists(commands.Cog):
 
             # noinspection PyCompatibility
             if (better_name := ''.join(e for e in name if e.isalnum() or e == '_')) == "":
-                await ctx.respond("Playlist names can only contain letters, numbers, and underscores.")
+                await ctx.respond(embed=error_template("Playlist names can only contain letters, numbers, and underscores."))
             else:
-                await ctx.respond("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
-                                  f"Use `{better_name}` instead?")
+                await ctx.respond(embed=error_template("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
+                                  f"Use `{better_name}` instead?"))
 
             return
 
         # Check if the name is too small or too big
         if 3 > len(name) > 32:
-            await ctx.respond("Playlist names must be from 3 to 32 characters long.")
+            await ctx.respond(embed=error_template("Playlist names must be from 3 to 32 characters long."))
             return
 
         # Check if the user already has a playlist with that name
-        if name in await get_user_playlists(ctx.author.id):
-            await ctx.respond("You already have a playlist with that name.")
+        if name in await get_user_playlists(ctx):
+            await ctx.respond(embed=error_template("You already have a playlist with that name."))
             return
 
-        # Create a Unique ID for the playlist, and add it to the database
+        if name[0].isdigit():
+            await ctx.respond(embed=error_template("Playlist names cannot start with a number."))
+            return
+
+        # Create a Unique ID for the playlist, and add it to the database which starts with a number
         id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
+        # make sure it starts with a number # TODO: make this better
+        while not id_[0].isdigit():
+            id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
         try:
-            self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?)",
-                             (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility)))
+            self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?, ?)",
+                             (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility), 0))
 
         # If the ID already exists (The chance of this happening is 1 in 36^8!)
         except sqlite3.IntegrityError:
