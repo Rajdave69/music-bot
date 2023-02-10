@@ -39,10 +39,12 @@ class Main(discord.Cog):
                 vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
                 await vc.set_volume(50)
             except AttributeError:
-                return await ctx.respond("You are not connected to a voice channel.")
+                return await ctx.respond(embed=error_template("You are not connected to a voice channel."), ephemeral=True)
 
+        if ctx.author.voice is None:
+            return await ctx.respond(embed=error_template("You are not connected to a voice channel."), ephemeral=True)
         if ctx.author.voice.channel.id != vc.channel.id:
-            return await ctx.respond("You are not in the same voice channel as me.")
+            return await ctx.respond(embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
 
         song = await wavelink.YouTubeTrack.search(song, return_first=True)
 
@@ -100,7 +102,8 @@ class Main(discord.Cog):
             embed = embed_template()
             embed.title = "Skipped"
             embed.description = "Successfully skipped the current song."
-            embed.add_field(name="Next Song", value=f"`{vc.source.title}`", inline=False)   # TODO fix shows skipped song title
+            embed.add_field(name="Next Song", value=f"`{vc.queue.get().title}`",
+                            inline=False)  # TODO fix shows skipped song title
 
         else:
             embed = error_template("Could not skip the Current Song. There are no more songs in the queue.")
@@ -125,20 +128,24 @@ class Main(discord.Cog):
     async def volume(self, ctx, volume: int):
         vc = ctx.voice_client
 
-        if not vc:
-            return await ctx.respond("I am not connected to a voice channel.")
+        if not await vc_exists(ctx):
+            return
 
-        if not vc.is_playing():
-            return await ctx.respond("I am not playing anything.")
+        if 0 < volume <= 100:
+            embed = embed_template()
+            embed.title = "Volume"
+            embed.description = f"Successfully changed the volume."
 
-        if 0 < volume > 100:
-            await vc.set_volume(volume / 100)
-            await ctx.respond(f"Set the volume to {volume}%")
+            embed.add_field(name="Old Volume", value=f"{vc.volume}", inline=True)
+            await vc.set_volume(volume)
+            embed.add_field(name="New Volume", value=f"{volume}", inline=True)
 
-        await vc.set_volume(volume)
-        await ctx.respond(f"Set the volume to {volume}.")
+        else:
+            return ctx.respond(embed=error_template("The volume must be between 1 and 100."), ephemeral=True)
 
-    @commands.slash_command(name="queue", aliases=['currentplaying'])
+        await ctx.respond(embed=embed)
+
+    @commands.slash_command(name="queue")
     async def queue(self, ctx):
         vc = ctx.voice_client
 
