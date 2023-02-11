@@ -154,21 +154,34 @@ class Main(discord.Cog):
     async def queue(self, ctx):
         vc = ctx.voice_client
 
-        if not vc:
-            return await ctx.respond("I am not connected to a voice channel.")
+        if not await vc_exists(ctx):
+            return
 
-        if not vc.is_playing():
-            return await ctx.respond("I am not playing anything.")
-
-        embed = discord.Embed(title="Music Queue")
-        embed.set_footer(text=embed_footer)
-
+        embed = embed_template()
+        embed.title = "Queue"
         embed.add_field(name="Now Playing", value=f"[{vc.source.title}]({vc.source.uri})")
+
+        embed_list = []
+        total_duration = 0
 
         for i, song in enumerate(vc.queue):
             duration = datetime.timedelta(seconds=song.duration)
+            total_duration += song.duration
             embed.add_field(name=f"{i + 1}. `{song.title}`", value=f"Duration: {str(duration)[2:]}", inline=False)
 
+            if (i + 1) % 10 == 0:
+                embed_list.append(embed.copy())
+                embed.clear_fields()
+            elif i == vc.queue.count - 1:
+                embed_list.append(embed.copy())
+
+        if len(embed_list) > 0:
+            embed_list[0].description = f"Total Queue Duration: {str(datetime.timedelta(seconds=total_duration))}"
+            paginator = discord.ext.pages.Paginator(
+                pages=embed_list, disable_on_timeout=True, timeout=120
+            )
+            await paginator.respond(ctx.interaction, ephemeral=False)
+        else:
         await ctx.respond(embed=embed)
 
     @commands.slash_command(name="resume")
