@@ -46,7 +46,12 @@ class Main(discord.Cog):
         if ctx.author.voice.channel.id != vc.channel.id:
             return await ctx.respond(embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
 
-        song = await wavelink.YouTubeTrack.search(song, return_first=True)
+        try:
+            song = await wavelink.YouTubeTrack.search(song, return_first=True)
+        except:
+            await ctx.respond(embed=error_template("No songs found."))
+            await vc.disconnect()
+            return
 
         if song.is_stream():
             await ctx.respond("Streams are not supported.")
