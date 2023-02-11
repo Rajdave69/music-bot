@@ -108,10 +108,10 @@ async def vc_exists(ctx) -> bool:
         raise commands.NoPrivateMessage
 
     if not ctx.voice_client:
-        await ctx.respond(embed=error_template("I am not connected to a voice channel or playing anything."))
+        await ctx.respond(embed=error_template("I am not connected to a voice channel or playing anything."), ephemeral=True)
 
     elif not ctx.voice_client.is_playing():
-        await ctx.respond(embed=error_template("I am not playing anything."))
+        await ctx.respond(embed=error_template("I am not playing anything."), ephemeral=True)
 
     return True
 
@@ -123,7 +123,7 @@ async def playlist_exists(ctx, playlist_name) -> bool:
             playlist = await cursor.fetchone()
 
             if not playlist:
-                await ctx.respond(embed=error_template(f"Playlist `{playlist_name}` does not exist."))
+                await ctx.respond(embed=error_template(f"Playlist `{playlist_name}` does not exist."), ephemeral=True)
                 return False
 
     return True
