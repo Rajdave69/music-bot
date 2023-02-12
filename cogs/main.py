@@ -61,9 +61,10 @@ class Main(discord.Cog):
         if song.duration > 600:
             print(ctx.author.id, owner_ids)
             if str(ctx.author.id) not in owner_ids:
-                await ctx.respond("Songs longer than 10 minutes are not supported.")
-                await vc.disconnect()
-                return
+                if not ctx.author.guild_permissions.manage_guild or not ctx.author.guild_permissions.manage_channels:
+                    await ctx.respond("Songs longer than 10 minutes are not supported.")
+                    await vc.disconnect()
+                    return
 
         if not song:
             await ctx.respond("No songs found.")
@@ -107,11 +108,12 @@ class Main(discord.Cog):
             embed = embed_template()
             embed.title = "Skipped"
             embed.description = "Successfully skipped the current song."
-            embed.add_field(name="Next Song", value=f"`{vc.queue.get().title}`",
+            embed.add_field(name="Next Song", value=f"`{vc.queue}`",
                             inline=False)  # TODO fix shows skipped song title
 
         else:
-            embed = error_template("Could not skip the Current Song. There are no more songs in the queue.")
+            return await ctx.respond(embed=error_template("Could not skip the Current Song. The Queue is empty!"),
+                               ephemeral=True)
 
         await ctx.respond(embed=embed)
 
@@ -182,7 +184,7 @@ class Main(discord.Cog):
             )
             await paginator.respond(ctx.interaction, ephemeral=False)
         else:
-        await ctx.respond(embed=embed)
+            await ctx.respond(embed=embed)
 
     @commands.slash_command(name="resume")
     async def resume(self, ctx):
