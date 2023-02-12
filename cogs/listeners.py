@@ -56,19 +56,16 @@ class Listeners(commands.Cog):
 
     @commands.Cog.listener()
     async def on_application_command_error(self, ctx: discord.ApplicationContext, error: Exception):
-        # if isinstance(error, commands.CommandNotFound):
-        #     await ctx.send("Command not found.")
-        if isinstance(error, NoVC):
-            await ctx.respond("You are not in a voice channel.")
-        elif isinstance(error, NotPlaying):
-            await ctx.respond("I am not playing anything.")
-        elif isinstance(error, commands.NoPrivateMessage):
+        if isinstance(error, commands.NoPrivateMessage):
             await ctx.respond("This command cannot be used in a DM.")
+        else:
+            if raise_errors:
+                raise error
 
         log.error(f"Command {ctx.command.name} failed with error: {error}")
 
-        if raise_errors:
-            raise error
+    @tasks.loop(seconds=60 * 60)
+    async def random_status(self):
 
 
 def setup(client):
