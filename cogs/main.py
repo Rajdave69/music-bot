@@ -200,7 +200,7 @@ class Main(discord.Cog):
         await ctx.respond(embed=embed)
 
     @commands.slash_command()
-    async def shuffle(self, ctx):  # TODO: test this
+    async def shuffle(self, ctx):
         vc = ctx.voice_client
 
         if not await vc_exists(ctx):
