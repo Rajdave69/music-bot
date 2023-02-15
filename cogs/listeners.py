@@ -42,17 +42,41 @@ class Listeners(commands.Cog):
         # cleanup = player was destroyed
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
-        if member.bot:
+    async def on_voice_state_update(self, member, before, after):  # TODO test
+        log.debug(f"Voice state update: {member} {before} {after}")
+
+        if member == self.client.user:
             return
-        vc = member.guild.voice_client
 
-        # If the user leaves the VC
-        if after.channel is None:
+        # if a channel disconnect/connect was encountered, return
+        if after.channel is None or before.channel is None:
+            return
 
-            # And the VC is empty (Except for the bot)
-            if len(before.channel.members) == 1:
-                await vc.disconnect()
+        # disconnect if member leaves the voice channel and the bot is alone
+        if len(after.channel.members) == 1 and self.client.user in after.channel.members:
+            player = self.client.wavelink.get_player(member.guild.id)
+            await player.disconnect()
+
+        guild = after.channel.guild
+
+        # if the bot is not connected to a voice channel, return
+        if not guild.voice_client or not guild.voice_client.is_connected():
+            return
+
+        # if the bot is not in the same voice channel as the user, return
+        if member.voice.channel != guild.voice_client.channel:
+            if len(before.channel.members) == 1 and len(after.channel.members) == 1 and after.channel != before.channel:
+                player = self.client.wavelink.get_player(member.guild.id)
+                await player.moveto(after.channel.id)
+            return
+
+        if len(after.channel.members) == 2 and before.self_deaf != after.self_deaf:
+            player = self.client.wavelink.get_player(member.guild.id)
+            await player.set_pause(not after.self_deaf)
+
+    @commands.Cog.listener()
+    async def on_application_command(self, ctx: discord.ApplicationContext):
+        log.info(f"Command `/{ctx.command.qualified_name}` was used by `{ctx.author}` in `{ctx.guild}`")
 
     @commands.Cog.listener()
     async def on_application_command_error(self, ctx: discord.ApplicationContext, error: Exception):
