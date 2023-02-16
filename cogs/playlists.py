@@ -67,10 +67,11 @@ class Playlists(commands.Cog):
 
             # noinspection PyCompatibility
             if (better_name := ''.join(e for e in name if e.isalnum() or e == '_')) == "":
-                await ctx.respond(embed=error_template("Playlist names can only contain letters, numbers, and underscores."))
+                await ctx.respond(
+                    embed=error_template("Playlist names can only contain letters, numbers, and underscores."))
             else:
                 await ctx.respond(embed=error_template("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
-                                  f"Use `{better_name}` instead?"))
+                                                       f"Use `{better_name}` instead?"))
 
             return
 
@@ -106,8 +107,8 @@ class Playlists(commands.Cog):
                 id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
                 try:
-                    self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?)",
-                                     (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility)))
+                    self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?, ?)",
+                                     (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility), 0))
                     break
 
                 # If the ID already exists AGAIN (The chance of this happening is 1 in 36^16!)
