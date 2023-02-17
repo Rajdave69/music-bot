@@ -186,6 +186,19 @@ class Main(discord.Cog):
         else:
             await ctx.respond(embed=embed)
 
+    @commands.slash_command(name="pause")
+    async def pause(self, ctx):
+        vc = ctx.voice_client
+
+        if not await vc_exists(ctx):
+            return
+        await vc.set_pause(not vc.is_paused())
+
+        embed = embed_template()
+        embed.title = "Paused" if vc.is_paused() else "Resumed"
+        embed.description = f"Successfully {'paused' if vc.is_paused() else 'resumed'} the player."
+        await ctx.respond(embed=embed)
+
     @commands.slash_command(name="resume")
     async def resume(self, ctx):
         vc = ctx.voice_client
