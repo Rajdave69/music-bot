@@ -90,6 +90,26 @@ class Listeners(commands.Cog):
 
     @tasks.loop(seconds=60 * 60)
     async def random_status(self):
+        activities = (
+            f"{self.member_count} Users!",
+            f"{len(self.client.guilds)} Guilds!",
+            "/play",
+        )
+
+        types = (
+            discord.ActivityType.watching,
+            discord.ActivityType.watching,
+            discord.ActivityType.playing,
+        )
+
+        rand_int = random.randint(0, len(activities) - 1)
+
+        try:
+            await self.client.change_presence(
+                activity=discord.Activity(type=types[rand_int], name=activities[rand_int]))
+        except Exception as e:
+            log.warning(f"Error in changing status : {e}")
+        log.debug(f"Changed status to {activities[rand_int]}")
 
 
 def setup(client):
