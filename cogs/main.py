@@ -39,12 +39,14 @@ class Main(discord.Cog):
                 vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
                 await vc.set_volume(50)
             except AttributeError:
-                return await ctx.respond(embed=error_template("You are not connected to a voice channel."), ephemeral=True)
+                return await ctx.respond(embed=error_template("You are not connected to a voice channel."),
+                                         ephemeral=True)
 
         if ctx.author.voice is None:
             return await ctx.respond(embed=error_template("You are not connected to a voice channel."), ephemeral=True)
         if ctx.author.voice.channel.id != vc.channel.id:
-            return await ctx.respond(embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
+            return await ctx.respond(embed=error_template("You are not in the same voice channel as me."),
+                                     ephemeral=True)
 
         try:
             song = await wavelink.YouTubeTrack.search(song, return_first=True)
