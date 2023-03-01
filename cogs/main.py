@@ -110,8 +110,8 @@ class Main(discord.Cog):
             embed = embed_template()
             embed.title = "Skipped"
             embed.description = "Successfully skipped the current song."
-            embed.add_field(name="Next Song", value=f"`{vc.queue}`",
-                            inline=False)  # TODO fix shows skipped song title
+            embed.add_field(name="Next Song", value=f"`{vc.queue[0]}`",
+                            inline=False)
 
         else:
             return await ctx.respond(embed=error_template("Could not skip the Current Song. The Queue is empty!"),
