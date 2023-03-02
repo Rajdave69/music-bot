@@ -111,6 +111,17 @@ class Listeners(commands.Cog):
             log.warning(f"Error in changing status : {e}")
         log.debug(f"Changed status to {activities[rand_int]}")
 
+    @tasks.loop(seconds=3600 * 24)  # Run every 24 hours
+    async def get_member_count(self):
+        _member_count = 0
+
+        for guild in self.client.guilds:
+            guild = await self.client.fetch_guild(guild.id, with_counts=True)
+            _member_count += guild.approximate_member_count
+
+        self.member_count = _member_count
+        log.debug(f"[Listeners] | Member Count: {self.member_count}")
+
 
 def setup(client):
     client.add_cog(Listeners(client))
