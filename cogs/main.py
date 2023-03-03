@@ -1,6 +1,5 @@
 import datetime
 import random
-
 import discord
 from discord.ext import commands
 import wavelink
@@ -115,7 +114,7 @@ class Main(discord.Cog):
 
         else:
             return await ctx.respond(embed=error_template("Could not skip the Current Song. The Queue is empty!"),
-                               ephemeral=True)
+                                     ephemeral=True)
 
         await ctx.respond(embed=embed)
 

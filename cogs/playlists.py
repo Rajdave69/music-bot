@@ -21,6 +21,7 @@ Cog Playlists:
         playlist list <name/id> - Lists all songs in a playlist
         playlist playlists - Lists all playlists
         playlist info <name> - Shows info about a playlist
+        playlist export <type> <name/id> - Exports a playlist to another format
 
 """
 
