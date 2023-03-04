@@ -117,7 +117,13 @@ class Playlists(commands.Cog):
                     continue
 
         self.con.commit()
-        await ctx.respond(f"Created playlist `{name.lower().strip()}`.")
+        embed = embed_template()
+        embed.title = "Playlist"
+        embed.description = f"Your playlist `{name}` has been created with the ID `{id_}`." \
+                            f"\nUse `/playlist add` to add songs to your playlist."  # TODO: add a command link
+
+        await ctx.respond(embed=embed)
+
     @option("playlist",
             description="The playlist to play.",
             autocomplete=get_user_playlists
