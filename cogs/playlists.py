@@ -124,34 +124,47 @@ class Playlists(commands.Cog):
 
         await ctx.respond(embed=embed)
 
+    @playlists.command(name="add", description="Add a song to a playlist.")
     @option("playlist",
-            description="The playlist to play.",
+            description="The playlist to add a song into.",
             autocomplete=get_user_playlists
             )
     async def add(self, ctx, playlist):
         await ctx.defer()
         vc = ctx.voice_client
 
-        if not vc:
-            try:
-                vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
-            except AttributeError:
-                return await ctx.respond("You are not connected to a voice channel.")
-
-        if ctx.author.voice.channel.id != vc.channel.id:
-            return await ctx.respond("You are not in the same voice channel as me.")
-
-        self.cur.execute("SELECT * FROM playlists WHERE name = ? AND song = ?",
-                         (playlist, ctx.voice_client.source.uri))
-        if self.cur.fetchone():
-            await ctx.followup.send("This song is already in the playlist.")
+        if not await vc_exists(ctx):
             return
 
-        self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?)", (ctx.author.id, playlist, vc.source.uri))
+        if ctx.author.voice.channel.id != vc.channel.id:
+            return await ctx.followup.send(
+                embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
+
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+
+        if (res := self.cur.fetchone()) is None:
+            return await ctx.followup.send(
+                embed=error_template("You don't have a playlist with that name."), ephemeral=True)
+
+        id_ = res[0]
+
+        self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
+                         (id_, ctx.voice_client.source.id))
+        if self.cur.fetchone():
+            await ctx.followup.send(embed=error_template("This song is already in the playlist."), ephemeral=True)
+            return
+
+        self.cur.execute("INSERT INTO playlist_data VALUES (?, ?)",
+                         (id_, ctx.voice_client.source.id))
         self.con.commit()
-        embed = discord.Embed(title="Playlist", description=f"Song added to `{playlist}`.",
-                              url=embed_url, color=embed_color)
-        embed.set_footer(text=embed_footer)
+
+        embed = embed_template()
+        embed.title = "Playlist"
+        embed.description = f"Successfully added the song to your playlist."
+        embed.add_field(name="Playlist", value=f"`{playlist}`", inline=False)
+        embed.add_field(name="Song", value=f"[{ctx.voice_client.source.title}]({ctx.voice_client.source.uri})",
+                        inline=False)
+
         await ctx.followup.send(embed=embed)
 
     @playlists.command()
