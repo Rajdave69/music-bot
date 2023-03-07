@@ -167,14 +167,25 @@ class Playlists(commands.Cog):
 
         await ctx.followup.send(embed=embed)
 
-    @playlists.command()
+    @playlists.command(name="delete", description="Delete a playlist.")
     @option("playlist",
-            description="The playlist to play.",
+            description="The playlist to delete.",
             autocomplete=get_user_playlists
             )
     async def delete(self, ctx, name):
         await ctx.defer()
-        self.cur.execute("DELETE FROM playlists WHERE name = ? AND author = ?", (name, ctx.author.id))
+
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?",
+                         (ctx.author.id, name))
+
+        if not (res := self.cur.fetchone()):
+            return await ctx.followup.send(embed=error_template("You don't have a playlist with that name."),
+                                           ephemeral=True)
+
+        id_ = res[0]
+
+        self.cur.execute("DELETE FROM playlist_data WHERE id = ?", (id_,))
+        self.cur.execute("DELETE FROM playlists WHERE id = ?", (id_,))
         self.con.commit()
 
         embed = discord.Embed(title="Playlist", description=f"Playlist `{name}` deleted.",
