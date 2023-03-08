@@ -193,22 +193,33 @@ class Playlists(commands.Cog):
         embed.set_footer(text=embed_footer)
         await ctx.followup.send(embed=embed)
 
-    @playlists.command()
+    @playlists.command(name="list", description="List the songs in a playlist.")
     @option("playlist",
-            description="The playlist to play.",
+            description="The playlist to list.",
             autocomplete=get_user_playlists
             )
     async def list_(self, ctx, playlist):
         await ctx.defer()
-        self.cur.execute("SELECT song FROM playlists WHERE name = ? AND author = ?", (playlist.strip(), ctx.author.id))
-        songs = self.cur.fetchall()
-        embed = discord.Embed(title="Playlist", description=f"Playlist `{playlist}` has {len(songs)} songs.",
+
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        if not (res := self.cur.fetchone()):
+            return await ctx.followup.send(
+                embed=error_template("You don't have a playlist with that name."), ephemeral=True)
+
+        id_ = res[0]
+
+        self.cur.execute("SELECT song FROM playlist_data WHERE id = ?",
+                         (id_,))
+        song_ids = self.cur.fetchall()
+
+        embed = discord.Embed(title="Playlist", description=f"Playlist `{playlist}` has {len(song_ids)} songs.",
                               url=embed_url, color=embed_color)
-        for song in songs:
-            song = await wavelink.YouTubeTrack.search(song[0], return_first=True)
+
+        for song_id in song_ids:
+            song = await wavelink.NodePool.get_node().build_track(wavelink.YouTubeTrack, song_id)
             embed.add_field(name=f"`{song.title}`", value=song.uri, inline=False)
         embed.set_footer(text=embed_footer)
-        await ctx.followup.send(embed=embed)
+        await ctx.followup.send(embed=embed)    # TODO make it a paginator
 
     @playlists.command()
     @option("playlist",
