@@ -221,31 +221,64 @@ class Playlists(commands.Cog):
         embed.set_footer(text=embed_footer)
         await ctx.followup.send(embed=embed)    # TODO make it a paginator
 
-    @playlists.command()
+    @playlists.command(name="play", description="Play a playlist.")
     @option("playlist",
             description="The playlist to play.",
             autocomplete=get_user_playlists
             )
     async def play(self, ctx, playlist: str, shuffle: bool = False):
         await ctx.defer()
+
+        # Try to look for the playlist in the author's playlists
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        if not (res := self.cur.fetchone()):
+
+            # If the playlist is not in the author's playlists, try to look for it in the global playlists
+            self.cur.execute("SELECT id FROM playlists WHERE name = ? AND visibility = '1'", (playlist,))
+            if not (res := self.cur.fetchone()):
+                # If the playlist is not in the global playlists, return
+                await ctx.followup.send(
+                    embed=error_template("There is no playlist with that name or ID. Is it public?"), ephemeral=True)
+                return
+
+        id_ = res[0]
+        await increment_listens(id_)
+
         if not ctx.voice_client:
             try:
                 await ctx.author.voice.channel.connect(cls=wavelink.Player)
+                await ctx.voice_client.set_volume(50)
             except AttributeError:
                 return await ctx.followup.send("You are not connected to a voice channel.")
 
-        self.cur.execute("SELECT song FROM playlists WHERE name = ? AND author = ?", (playlist.strip(), ctx.author.id))
-        songs = self.cur.fetchall()
-        if shuffle:
-            random.shuffle(songs)
+        self.cur.execute("SELECT song FROM playlist_data WHERE id = ?",
+                         (id_,))
+        song_ids = self.cur.fetchall()
 
-        for song in songs:
-            song = await wavelink.YouTubeTrack.search(song[0], return_first=True)    # TODO: Implement use of partial-track object from wavelink
+        if shuffle:
+            random.shuffle(song_ids)
+
+        song_list = []
+
+        for song_id in song_ids:
+            song = await ctx.voice_client.node.build_track(wavelink.YouTubeTrack, song_id[0])
+
             if not ctx.voice_client.is_playing():
                 await ctx.voice_client.play(song)
             else:
-                ctx.voice_client.queue.put(song)
-        await ctx.followup.send(f"Added {len(songs)} songs to the queue.")
+                song_list.append(song)
+
+        if song_list:
+            ctx.voice_client.queue.extend(song_list, atomic=False)
+
+        embed = embed_template()
+        embed.title = "Playlist"
+        embed.description = f"Successfully added the playlist to the queue."
+        embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
+        embed.add_field(name="Songs", value=f"`{len(song_ids)}`", inline=True)
+        embed.add_field(name="Shuffle", value=f"`{shuffle}`", inline=True)
+
+        await ctx.followup.send(embed=embed)
 
     @playlists.command()
     async def remove(self, ctx, playlist):
