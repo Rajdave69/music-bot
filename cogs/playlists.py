@@ -282,7 +282,96 @@ class Playlists(commands.Cog):
 
     @playlists.command()
     async def remove(self, ctx, playlist):
-        pass
+        await ctx.defer()
+
+        # check if playlist exists
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        if not (res := self.cur.fetchone()):
+            return await ctx.followup.send(
+                embed=error_template("You don't have a playlist with that name."), ephemeral=True)
+
+        id_ = res[0]
+        print(res)
+
+        # check if the bot is playing anything
+        if ctx.voice_client:
+            if ctx.voice_client.is_playing():
+                # check if the song is in the playlist
+                self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
+                                 (id_, ctx.voice_client.source.id))
+                if self.cur.fetchone():
+                    # remove the song from the playlist
+                    self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?",
+                                     (id_, ctx.voice_client.source.id))
+                    self.con.commit()
+
+                    embed = embed_template()
+                    embed.title = "Playlist"
+                    embed.description = f"Removed the current song from the playlist."
+                    embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
+                    embed.add_field(name="Song",
+                                    value=f"[{ctx.voice_client.source.title}]({ctx.voice_client.source.uri})",
+                                    inline=False)
+
+                    await ctx.followup.send(embed=embed)
+
+                else:
+                    embed = error_template("The song that's currently playing is not already in the playlist.")
+                    embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
+                    embed.add_field(name="Song",
+                                    value=f"[{ctx.voice_client.source.title}]({ctx.voice_client.source.uri})",
+                                    inline=False)
+                    await ctx.followup.send(embed=embed, ephemeral=True)
+
+        else:
+            self.cur.execute("SELECT song FROM playlist_data WHERE id = ?", (id_,))
+            if not (songs := self.cur.fetchall()):
+                return await ctx.followup.send(embed=error_template("The playlist is empty."), ephemeral=True)
+            songs = [song[0] for song in songs]
+
+            # create a context menu to select songs to remove
+            option_list = []
+
+            print(songs)
+            for song in songs:
+                # build song with wavelink
+                song_obj = await wavelink.NodePool.get_node().build_track(wavelink.YouTubeTrack, song)
+
+                option_list.append(discord.SelectOption(
+                    label=song_obj.title[:97] + "..." if len(str(song_obj.title)) > 100 else song_obj.title,
+                    value=str(songs.index(song_obj.id)),
+                    description=song_obj.author[:97] + "..." if len(str(song_obj.author)) > 100 else song_obj.author,
+                ))
+
+            print(option_list)
+
+            select = discord.ui.Select(  # TODO playlist remove context menu
+                placeholder="Select songs to remove.",
+                options=option_list,
+                min_values=1,
+                max_values=len(option_list)
+            )
+
+            embed = embed_template()
+            embed.title = "Playlist"
+            embed.description = f"Select songs to remove from the playlist."
+            embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
+
+            await ctx.followup.send(
+                embed=embed,
+                components=[select]
+            )
+
+            try:
+                interaction = await self.bot.wait_for("select_option", check=lambda i: i.user == ctx.author, timeout=60)
+            except asyncio.TimeoutError:
+                return await ctx.followup.edit("Timed out.")
+
+            # remove songs from playlist
+            for option in interaction.values:
+                self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?", (id_, option))
+                self.con.commit()
+
 
 
 def setup(client):
