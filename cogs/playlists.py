@@ -374,5 +374,15 @@ class Playlists(commands.Cog):
 
 
 
+        embed = embed_template()
+        embed.title = "Playlists"
+        embed.description = f"You have {len(playlists)} playlists."
+
+        for playlist in playlists:
+            embed.add_field(name=f"`{playlist[0]}`", value=f"ID: `{playlist[1]}`", inline=False)
+
+        await ctx.followup.send(embed=embed)
+
+        await ctx.followup.send(embed=embed)
 def setup(client):
     client.add_cog(Playlists(client))
