@@ -383,6 +383,46 @@ class Playlists(commands.Cog):
 
         await ctx.followup.send(embed=embed)
 
+    @playlists.command()
+    @option("playlist",
+            description="The playlist to select.",
+            autocomplete=get_user_playlists
+            )
+    async def info_(self, ctx, playlist: str):
+        await ctx.defer()
+
+        # Try to look for the playlist in the author's playlists
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        if not (res := self.cur.fetchone()):
+
+            # If the playlist is not in the author's playlists, try to look for it in the global playlists
+            self.cur.execute("SELECT id FROM playlists WHERE name = ? AND visibility = '1'", (playlist,))
+            if not (res := self.cur.fetchone()):
+                # If the playlist is not in the global playlists, return
+                await ctx.followup.send("There is no playlist with that name or ID. Is it public?")
+                return
+
+        id_ = res[0]
+
+        self.cur.execute("SELECT * FROM playlists WHERE id = ?",
+                         (id_,))
+        details = self.cur.fetchall()[0]
+        self.cur.execute("SELECT song FROM playlist_data WHERE id = ?",
+                         (id_,))
+        song_ids = [song[0] for song in self.cur.fetchall()]
+        log.debug(song_ids)
+        log.debug(details)
+
+        embed = embed_template()
+        embed.title = "Playlist"
+        embed.description = f"Details about the playlist."
+        embed.add_field(name="Name", value=f"`{details[2]}`", inline=True)
+        embed.add_field(name="Author", value=f"`{details[1]}`", inline=True)
+        embed.add_field(name="ID", value=f"`{id_}`", inline=True)
+        embed.add_field(name="Songs", value=f"`{len(song_ids)}`", inline=True)
+        embed.add_field(name="Visibility", value=f"{details[3]}", inline=True)
+        embed.add_field(name="Listens", value=f"{details[4]}", inline=True)
+
         await ctx.followup.send(embed=embed)
 def setup(client):
     client.add_cog(Playlists(client))
