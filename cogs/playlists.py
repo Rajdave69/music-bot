@@ -1,8 +1,13 @@
+import asyncio
+import os
 import random
 import sqlite3
 import string
+import zipfile
+
 import discord
 import wavelink
+import yt_dlp
 from discord.ext import commands
 from backend import log, embed_footer, embed_color, embed_url, get_user_playlists, vc_exists, embed_template, \
     error_template, increment_listens
@@ -90,12 +95,9 @@ class Playlists(commands.Cog):
             await ctx.respond(embed=error_template("Playlist names cannot start with a number."))
             return
 
-        # Create a Unique ID for the playlist, and add it to the database which starts with a number
-        id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
-
-        # make sure it starts with a number # TODO: make this better
-        while not id_[0].isdigit():
-            id_ = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+        # Create a unique id with the first character being a number
+        id_ = str(random.randint(0, 9))
+        id_ += ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(7))
 
         try:
             self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?, ?)",
@@ -119,8 +121,8 @@ class Playlists(commands.Cog):
         self.con.commit()
         embed = embed_template()
         embed.title = "Playlist"
-        embed.description = f"Your playlist `{name}` has been created with the ID `{id_}`." \
-                            f"\nUse `/playlist add` to add songs to your playlist."  # TODO: add a command link
+        embed.description = f"Your playlist `{name}` has been created with the ID `{id_}`.\n" \
+                            f"Use `/playlist add` to add songs to your playlist."  # TODO: add a command link
 
         await ctx.respond(embed=embed)
 
@@ -323,7 +325,7 @@ class Playlists(commands.Cog):
                                     inline=False)
                     await ctx.followup.send(embed=embed, ephemeral=True)
 
-        else:
+        else:   # TODO fix this
             self.cur.execute("SELECT song FROM playlist_data WHERE id = ?", (id_,))
             if not (songs := self.cur.fetchall()):
                 return await ctx.followup.send(embed=error_template("The playlist is empty."), ephemeral=True)
@@ -354,7 +356,7 @@ class Playlists(commands.Cog):
 
             embed = embed_template()
             embed.title = "Playlist"
-            embed.description = f"Select songs to remove from the playlist."
+            embed.description = "Select the songs to remove from the playlist."
             embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
 
             await ctx.followup.send(
