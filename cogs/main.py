@@ -22,12 +22,8 @@ class Main(discord.Cog):
 
     async def connect_nodes(self):
         await self.client.wait_until_ready()
-        await wavelink.NodePool.create_node(
-            bot=self.client,
-            host=wavelink_host,
-            port=wavelink_port,
-            password=wavelink_password
-        )
+        node1: wavelink.Node = wavelink.Node(uri=wavelink_host + ":" + str(wavelink_port), password=wavelink_password)
+        await wavelink.NodePool.connect(client=self.client, nodes=[node1])
 
     @commands.slash_command()
     async def play(self, ctx, song: str):
@@ -54,13 +50,12 @@ class Main(discord.Cog):
             await vc.disconnect()
             return
 
-        if song.is_stream():
-            await ctx.respond("Streams are not supported.")
+        if song.is_stream:
+            await ctx.respond(embed=error_template("Streams are not supported."))
             await vc.disconnect()
             return
 
-        if song.duration > 600:
-            print(ctx.author.id, owner_ids)
+        if song.duration/1000 > 600:
             if str(ctx.author.id) not in owner_ids:
                 if not ctx.author.guild_permissions.manage_guild or not ctx.author.guild_permissions.manage_channels:
                     await ctx.respond("Songs longer than 10 minutes are not supported.")
@@ -72,12 +67,12 @@ class Main(discord.Cog):
             await vc.disconnect()
             return
 
-        duration = datetime.timedelta(seconds=song.duration)
+        duration = datetime.timedelta(seconds=song.duration/1000)
 
         embed = embed_template()
         embed.title = "Now Playing"
         embed.description = f"[{song.title}]({song.uri})"
-        embed.add_field(name="Duration", value=f"{str(duration)[2:]}", inline=True)
+        embed.add_field(name="Duration", value=f"{str(duration)}", inline=True)
         embed.add_field(name="Requested by", value=ctx.author.mention, inline=True)
 
         thumbnail = f"https://img.youtube.com/vi/{song.identifier}/mqdefault.jpg"
@@ -104,7 +99,7 @@ class Main(discord.Cog):
         # play the next song from the queue
         if not vc.queue.is_empty:
             # Seek the current song to the end
-            await vc.seek(vc.source.duration * 1000)
+            await vc.seek(vc.position * 1000)
 
             embed = embed_template()
             embed.title = "Skipped"
@@ -162,15 +157,15 @@ class Main(discord.Cog):
 
         embed = embed_template()
         embed.title = "Queue"
-        embed.add_field(name="Now Playing", value=f"[{vc.source.title}]({vc.source.uri})")
+        embed.add_field(name="Now Playing", value=f"[{vc.current.title}]({vc.current.uri})")
 
         embed_list = []
         total_duration = 0
 
         for i, song in enumerate(vc.queue):
-            duration = datetime.timedelta(seconds=song.duration)
-            total_duration += song.duration
-            embed.add_field(name=f"{i + 1}. `{song.title}`", value=f"Duration: {str(duration)[2:]}", inline=False)
+            duration = datetime.timedelta(seconds=song.duration/1000)
+            total_duration += song.duration/1000
+            embed.add_field(name=f"{i + 1}. `{song.title}`", value=f"Duration: {str(duration)}", inline=False)
 
             if (i + 1) % 10 == 0:
                 embed_list.append(embed.copy())
