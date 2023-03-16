@@ -13,7 +13,7 @@ class Listeners(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node):
-        log.info(f"{node.identifier} is ready.")  # print a message
+        log.info(f"{node.id} is ready.")  # print a message
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -28,13 +28,13 @@ class Listeners(commands.Cog):
         self.random_status.start()
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, player: wavelink.Player, track: wavelink.Track, reason):
-        if reason == "FINISHED":
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
+        if payload.reason == "FINISHED":
             try:
-                await player.play(player.queue.get())
+                await payload.player.play(payload.player.queue.get()) #, payload_args={"skipSegments": ["music_offtopic"]}
             except wavelink.QueueEmpty:
                 log.debug("Queue is empty, disconnecting.")
-                await player.disconnect()
+                await payload.player.disconnect()
         # possible reasons: FINISHED, LOAD_FAILED, STOPPED, REPLACED, CLEANUP
         # load_failed = track failed to load
         # stopped = track was stopped
@@ -54,25 +54,22 @@ class Listeners(commands.Cog):
 
         # disconnect if member leaves the voice channel and the bot is alone
         if len(after.channel.members) == 1 and self.client.user in after.channel.members:
-            player = self.client.wavelink.get_player(member.guild.id)
-            await player.disconnect()
+            await member.guild.voice_client.disconnect()
 
         guild = after.channel.guild
 
         # if the bot is not connected to a voice channel, return
-        if not guild.voice_client or not guild.voice_client.is_connected():
+        if not guild.voice_client:
             return
 
         # if the bot is not in the same voice channel as the user, return
         if member.voice.channel != guild.voice_client.channel:
             if len(before.channel.members) == 1 and len(after.channel.members) == 1 and after.channel != before.channel:
-                player = self.client.wavelink.get_player(member.guild.id)
-                await player.moveto(after.channel.id)
+                await member.guild.voice_client.moveto(after.channel.id)
             return
 
         if len(after.channel.members) == 2 and before.self_deaf != after.self_deaf:
-            player = self.client.wavelink.get_player(member.guild.id)
-            await player.set_pause(not after.self_deaf)
+            await member.guild.voice_client.set_pause(not after.self_deaf)
 
     @commands.Cog.listener()
     async def on_application_command(self, ctx: discord.ApplicationContext):
