@@ -5,6 +5,7 @@ import sqlite3
 import string
 import zipfile
 
+import aiosqlite
 import discord
 import wavelink
 import yt_dlp
@@ -151,20 +152,20 @@ class Playlists(commands.Cog):
         id_ = res[0]
 
         self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
-                         (id_, ctx.voice_client.source.id))
+                         (id_, ctx.voice_client.current.identifier))
         if self.cur.fetchone():
             await ctx.followup.send(embed=error_template("This song is already in the playlist."), ephemeral=True)
             return
 
         self.cur.execute("INSERT INTO playlist_data VALUES (?, ?)",
-                         (id_, ctx.voice_client.source.id))
+                         (id_, ctx.voice_client.current.identifier))
         self.con.commit()
 
         embed = embed_template()
         embed.title = "Playlist"
         embed.description = f"Successfully added the song to your playlist."
         embed.add_field(name="Playlist", value=f"`{playlist}`", inline=False)
-        embed.add_field(name="Song", value=f"[{ctx.voice_client.source.title}]({ctx.voice_client.source.uri})",
+        embed.add_field(name="Song", value=f"[{ctx.voice_client.current.title}]({ctx.voice_client.current.uri})",
                         inline=False)
 
         await ctx.followup.send(embed=embed)
@@ -263,7 +264,7 @@ class Playlists(commands.Cog):
         song_list = []
 
         for song_id in song_ids:
-            song = await ctx.voice_client.node.build_track(wavelink.YouTubeTrack, song_id[0])
+            song = await ctx.voice_client.current_node.build_track(cls=wavelink.YouTubeTrack, encoded=song_id[0])
 
             if not ctx.voice_client.is_playing():
                 await ctx.voice_client.play(song)
@@ -300,11 +301,11 @@ class Playlists(commands.Cog):
             if ctx.voice_client.is_playing():
                 # check if the song is in the playlist
                 self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
-                                 (id_, ctx.voice_client.source.id))
+                                 (id_, ctx.voice_client.current.identifier))
                 if self.cur.fetchone():
                     # remove the song from the playlist
                     self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?",
-                                     (id_, ctx.voice_client.source.id))
+                                     (id_, ctx.voice_client.current.identifier))
                     self.con.commit()
 
                     embed = embed_template()
@@ -312,7 +313,7 @@ class Playlists(commands.Cog):
                     embed.description = f"Removed the current song from the playlist."
                     embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
                     embed.add_field(name="Song",
-                                    value=f"[{ctx.voice_client.source.title}]({ctx.voice_client.source.uri})",
+                                    value=f"[{ctx.voice_client.current.title}]({ctx.voice_client.current.uri})",
                                     inline=False)
 
                     await ctx.followup.send(embed=embed)
@@ -321,11 +322,11 @@ class Playlists(commands.Cog):
                     embed = error_template("The song that's currently playing is not already in the playlist.")
                     embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
                     embed.add_field(name="Song",
-                                    value=f"[{ctx.voice_client.source.title}]({ctx.voice_client.source.uri})",
+                                    value=f"[{ctx.voice_client.current.title}]({ctx.voice_client.current.uri})",
                                     inline=False)
                     await ctx.followup.send(embed=embed, ephemeral=True)
 
-        else:   # TODO fix this
+        else:  # TODO fix this
             self.cur.execute("SELECT song FROM playlist_data WHERE id = ?", (id_,))
             if not (songs := self.cur.fetchall()):
                 return await ctx.followup.send(embed=error_template("The playlist is empty."), ephemeral=True)
@@ -337,11 +338,12 @@ class Playlists(commands.Cog):
             print(songs)
             for song in songs:
                 # build song with wavelink
-                song_obj = await wavelink.NodePool.get_node().build_track(wavelink.YouTubeTrack, song)
+                node = wavelink.NodePool.get_node()
+                song_obj = await node.build_track(cls=wavelink.YouTubeTrack, encoded=song)
 
                 option_list.append(discord.SelectOption(
                     label=song_obj.title[:97] + "..." if len(str(song_obj.title)) > 100 else song_obj.title,
-                    value=str(songs.index(song_obj.id)),
+                    value=str(songs.index(song_obj.identifier)),
                     description=song_obj.author[:97] + "..." if len(str(song_obj.author)) > 100 else song_obj.author,
                 ))
 
@@ -374,18 +376,7 @@ class Playlists(commands.Cog):
                 self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?", (id_, option))
                 self.con.commit()
 
-
-
-        embed = embed_template()
-        embed.title = "Playlists"
-        embed.description = f"You have {len(playlists)} playlists."
-
-        for playlist in playlists:
-            embed.add_field(name=f"`{playlist[0]}`", value=f"ID: `{playlist[1]}`", inline=False)
-
-        await ctx.followup.send(embed=embed)
-
-    @playlists.command()
+    @playlists.command(name="info")
     @option("playlist",
             description="The playlist to select.",
             autocomplete=get_user_playlists
@@ -422,7 +413,7 @@ class Playlists(commands.Cog):
         embed.add_field(name="Author", value=f"`{details[1]}`", inline=True)
         embed.add_field(name="ID", value=f"`{id_}`", inline=True)
         embed.add_field(name="Songs", value=f"`{len(song_ids)}`", inline=True)
-        embed.add_field(name="Visibility", value=f"{details[3]}", inline=True)
+        embed.add_field(name="Visibility", value=f"{'Public' if details[3] == 1 else 'Private'}", inline=True)
         embed.add_field(name="Listens", value=f"{details[4]}", inline=True)
 
         await ctx.followup.send(embed=embed)
