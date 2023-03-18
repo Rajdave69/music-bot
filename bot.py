@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 from backend import client, bot_token, log
@@ -10,9 +11,22 @@ async def on_ready():
     log.info(f"Bot is ready. Logged in as {client.user}")
 
 
-for file in os.listdir('./cogs'):
-    if file.endswith('.py'):
-        client.load_extension(f'cogs.{file[:-3]}')
+async def load_cogs():
+    for file in os.listdir('./cogs'):
+        if file.endswith('.py'):
+            await client.load_extension(f'cogs.{file[:-3]}')
+
+
+asyncio.run(load_cogs())
+
+
+# make a command to sync slash cmds
+
+@client.command()
+async def sync(ctx):
+    fmt = await ctx.client.tree.sync()
+    await ctx.send("Done")
+
 
 try:
     client.run(bot_token)
