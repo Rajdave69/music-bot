@@ -492,5 +492,84 @@ class Playlists(commands.Cog):
         embed.add_field(name="Visibility", value=f"`{visibility}`", inline=True)
 
         await ctx.followup.send(embed=embed)
+
+    @playlists.command()
+    @option("playlist",
+            description="The selected playlist.",
+            autocomplete=get_user_playlists
+            )
+    async def export(self, ctx, playlist: str, export_format: str):
+        await ctx.defer()
+
+        # check if playlist exists
+        if playlist[0].isdigit():
+            self.cur.execute("SELECT id FROM playlists WHERE id = ? AND visibility = '1'", (playlist,))
+        else:
+            self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+
+        if not (res := self.cur.fetchone()):
+            return await ctx.followup.send(
+                embed=error_template(
+                    "You don't have a playlist with that name, or a playlist with that ID doesn't exist."
+                ),
+                ephemeral=True
+            )
+
+        id_ = res[0]
+
+        self.cur.execute("SELECT song FROM playlist_data WHERE id = ?", (id_,))
+        song_ids = [song[0] for song in self.cur.fetchall()]
+
+        match export_format[:3]:
+            case "mp3":
+                # build the song objects
+                songs = []
+                for song_id in song_ids:
+                    song = await ctx.voice_client.current_node.build_track(wavelink.YouTubeTrack, song_id)
+                    songs.append(song.uri)
+                    print(song.uri)
+
+                # download the songs with the song metadata
+                yt_options = {
+                    "format": "bestaudio/best",
+                    "outtmpl": "%(title)s.%(ext)s",
+                    "noplaylist": True,
+                    "postprocessors": [{
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "320" if export_format == "mp3_320" else "192",
+                    }],
+                    # make it quiet
+                    "quiet": True,
+                }
+
+                import threading
+
+                def download_song(song_uri):
+                    with yt_dlp.YoutubeDL(yt_options) as ydl:
+                        ydl.extract_info(song_uri, download=True)
+
+                threads = []
+
+                for song in songs:
+                    thread = threading.Thread(target=download_song, args=(song,))
+                    thread.start()
+                    threads.append(thread)
+
+                # for thread in threads:
+                #     thread.join()
+
+                # zip the songs
+                with zipfile.ZipFile(f"{playlist}.zip", "w") as zip:
+                    # for .mp3 in ./    TODO improve to a better system
+                    for file in os.listdir():
+                        if file.endswith(".mp3"):
+                            zip.write(file)
+                            os.remove(file)
+
+                # send the zip file
+                await ctx.followup.send(file=discord.File(f"{playlist}.zip"))
+
+
 def setup(client):
     client.add_cog(Playlists(client))
