@@ -217,12 +217,29 @@ class Playlists(commands.Cog):
 
         embed = discord.Embed(title="Playlist", description=f"Playlist `{playlist}` has {len(song_ids)} songs.",
                               url=embed_url, color=embed_color)
+        embed.set_footer(text=embed_footer)
+
+        counter = 1
+        embed_list = []
 
         for song_id in song_ids:
-            song = await wavelink.NodePool.get_node().build_track(wavelink.YouTubeTrack, song_id)
+            song = await wavelink.NodePool.get_node().build_track(cls=wavelink.YouTubeTrack, encoded=song_id[0])
             embed.add_field(name=f"`{song.title}`", value=song.uri, inline=False)
-        embed.set_footer(text=embed_footer)
-        await ctx.followup.send(embed=embed)    # TODO make it a paginator
+
+            counter += 1
+
+            if counter == 10:
+                counter = 1
+                embed_list.append(embed.copy())
+                embed.clear_fields()
+
+        if len(embed_list) == 0:
+            await ctx.followup.send(embed=error_template("This playlist is empty."), ephemeral=True)
+
+        paginator = discord.ext.pages.Paginator(
+            pages=embed_list, disable_on_timeout=True, timeout=120
+        )
+        await paginator.respond(ctx.interaction)
 
     @playlists.command(name="play", description="Play a playlist.")
     @option("playlist",
