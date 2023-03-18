@@ -434,5 +434,63 @@ class Playlists(commands.Cog):
         embed.add_field(name="Listens", value=f"{details[4]}", inline=True)
 
         await ctx.followup.send(embed=embed)
+
+    @playlists.command(name="playlists")
+    async def playlists_(self, ctx, only_public: bool = False):
+        # get all playlists of this user
+        await ctx.defer()
+
+        async with aiosqlite.connect("data/data.db") as con:
+            if only_public:
+                async with con.execute("SELECT id, author, visibility FROM playlists WHERE author = ? AND visibility "
+                                       "= ?", (ctx.author.id,  True)) as cur:
+                    playlists = await cur.fetchall()
+            else:
+                async with con.execute("SELECT id, author, visibility FROM playlists WHERE author = ?",
+                                       (ctx.author.id,)) as cur:
+                    playlists = await cur.fetchall()
+
+        embed = embed_template()
+        embed.title = "Playlists"
+        embed.description = f"You have {len(playlists)} {'public' if only_public else ''} playlists."
+
+        # Create a field for each playlist
+        for playlist in playlists:
+            embed.add_field(
+                name=f"`{playlist[0]}`",
+                value=f"ID: `{playlist[1]}`\n"
+                      # Show visibility as "Public" or "Private", only if only_public is False
+                      f"{'Visibility': `{'Private' if playlist[2] == 0 else 'Public'}` if not only_public else ''}",
+                inline=False)
+
+        await ctx.followup.send(embed=embed)
+
+    @playlists.command()
+    @option("playlist",
+            description="The selected playlist.",
+            autocomplete=get_user_playlists
+            )
+    async def visibility(self, ctx, playlist: str, visibility: bool):
+        await ctx.defer()
+
+        # check if playlist exists
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        if not (res := self.cur.fetchone()):
+            return await ctx.followup.send(
+                embed=error_template("You don't have a playlist with that name."), ephemeral=True
+            )
+
+        id_ = res[0]
+
+        self.cur.execute("UPDATE playlists SET visibility = ? WHERE id = ?", (visibility, id_))
+        self.con.commit()
+
+        embed = embed_template()
+        embed.title = "Playlist"
+        embed.description = f"Successfully changed the visibility of the playlist."
+        embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
+        embed.add_field(name="Visibility", value=f"`{visibility}`", inline=True)
+
+        await ctx.followup.send(embed=embed)
 def setup(client):
     client.add_cog(Playlists(client))
