@@ -1,15 +1,15 @@
+import copy
 import datetime
 import random
-import discord
 from discord.ext import commands
+from discord import app_commands
 import wavelink
 from backend import wavelink_host, wavelink_password, wavelink_port, log, vc_exists, embed_template, \
-    owner_ids, error_template
+    owner_ids, error_template, SimplePaginator
 import sqlite3
-import discord.ext.pages
 
 
-class Main(discord.Cog):
+class Main(commands.Cog):
     def __init__(self, client):
         self.client = client
         self.con = sqlite3.connect("./data/data.db")
@@ -19,87 +19,91 @@ class Main(discord.Cog):
     async def on_ready(self):
         print("Connected to Discord!")
         await self.connect_nodes()
+        # await self.client.tree.sync()
 
     async def connect_nodes(self):
         await self.client.wait_until_ready()
         node1: wavelink.Node = wavelink.Node(uri=wavelink_host + ":" + str(wavelink_port), password=wavelink_password)
         await wavelink.NodePool.connect(client=self.client, nodes=[node1])
 
-    @commands.slash_command()
-    async def play(self, ctx, song: str):
-        vc = ctx.voice_client
+    @app_commands.command()
+    async def play(self, interaction, song: str):
+        vc = interaction.guild.voice_client
 
         if not vc:
             try:
-                vc = await ctx.author.voice.channel.connect(cls=wavelink.Player)
+                vc = await interaction.user.voice.channel.connect(cls=wavelink.Player)
                 await vc.set_volume(50)
             except AttributeError:
-                return await ctx.respond(embed=error_template("You are not connected to a voice channel."),
-                                         ephemeral=True)
+                return await interaction.response.send_message(
+                    embed=error_template("You are not connected to a voice channel."),
+                    ephemeral=True)
 
-        if ctx.author.voice is None:
-            return await ctx.respond(embed=error_template("You are not connected to a voice channel."), ephemeral=True)
-        if ctx.author.voice.channel.id != vc.channel.id:
-            return await ctx.respond(embed=error_template("You are not in the same voice channel as me."),
-                                     ephemeral=True)
+        if interaction.user.voice is None:
+            return await interaction.response.send_message(
+                embed=error_template("You are not connected to a voice channel."), ephemeral=True)
+        if interaction.user.voice.channel.id != vc.channel.id:
+            return await interaction.response.send_message(
+                embed=error_template("You are not in the same voice channel as me."),
+                ephemeral=True)
 
         try:
             song = await wavelink.YouTubeTrack.search(song, return_first=True)
         except:
-            await ctx.respond(embed=error_template("No songs found."))
+            await interaction.response.send_message(embed=error_template("No songs found."))
             await vc.disconnect()
             return
 
         if song.is_stream:
-            await ctx.respond(embed=error_template("Streams are not supported."))
+            await interaction.response.send_message(embed=error_template("Streams are not supported."))
             await vc.disconnect()
             return
 
-        if song.duration/1000 > 600:
-            if str(ctx.author.id) not in owner_ids:
-                if not ctx.author.guild_permissions.manage_guild or not ctx.author.guild_permissions.manage_channels:
-                    await ctx.respond("Songs longer than 10 minutes are not supported.")
+        if song.duration / 1000 > 600:
+            if str(interaction.user.id) not in owner_ids:
+                if not interaction.user.guild_permissions.manage_guild or not interaction.user.guild_permissions.manage_channels:
+                    await interaction.response.send_message("Songs longer than 10 minutes are not supported.")
                     await vc.disconnect()
                     return
 
-        if not song:
-            await ctx.respond("No songs found.")
-            await vc.disconnect()
-            return
-
-        duration = datetime.timedelta(seconds=song.duration/1000)
+        duration = str(datetime.timedelta(seconds=song.duration / 1000))
 
         embed = embed_template()
         embed.title = "Now Playing"
         embed.description = f"[{song.title}]({song.uri})"
-        embed.add_field(name="Duration", value=f"{str(duration)}", inline=True)
-        embed.add_field(name="Requested by", value=ctx.author.mention, inline=True)
+        embed.add_field(name="Duration", value=f"{duration if duration[0] != '0' else duration[2:7]}", inline=True)
+        embed.add_field(name="Requested by", value=interaction.user.mention, inline=True)
 
         thumbnail = f"https://img.youtube.com/vi/{song.identifier}/mqdefault.jpg"
         log.debug(thumbnail)
         embed.set_image(url=thumbnail)
+        # thumbnail = await song.fetch_thumbnail() # todo wavelink 2.0 feature
 
         if not vc.is_playing():
-            await vc.play(song)
+            await vc.play(song)  # DO NOT COMMIT THIS payload_args={"skipSegments": ["music_offtopic"]}
 
         else:
             vc.queue.put(song)
             embed.fields[0].name = "Added to Queue"
 
         embed.add_field(name="Queue Position", value=f"{vc.queue.count}", inline=True)
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command()
-    async def skip(self, ctx):
-        vc = ctx.voice_client
+    @app_commands.command()
+    async def skip(self, interaction, amount: int = 1):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
 
         # play the next song from the queue
         if not vc.queue.is_empty:
             # Seek the current song to the end
-            await vc.seek(vc.position * 1000)
+            for _ in range(amount):
+                if not vc.queue.is_empty:
+                    await vc.seek(vc.position * 1000)
+                else:
+                    break
 
             embed = embed_template()
             embed.title = "Skipped"
@@ -108,16 +112,17 @@ class Main(discord.Cog):
                             inline=False)
 
         else:
-            return await ctx.respond(embed=error_template("Could not skip the Current Song. The Queue is empty!"),
-                                     ephemeral=True)
+            return await interaction.response.send_message(
+                embed=error_template("Could not skip the Current Song. The Queue is empty!"),
+                ephemeral=True)
 
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command()
-    async def stop(self, ctx):
-        vc = ctx.voice_client
+    @app_commands.command()
+    async def stop(self, interaction):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
         await vc.disconnect()
 
@@ -125,13 +130,13 @@ class Main(discord.Cog):
         embed.title = "Disconnected"
         embed.description = "Successfully disconnected from the voice channel."
 
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command()
-    async def volume(self, ctx, volume: int):
-        vc = ctx.voice_client
+    @app_commands.command()
+    async def volume(self, interaction, volume: int):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
 
         if 0 < volume <= 100:
@@ -144,15 +149,16 @@ class Main(discord.Cog):
             embed.add_field(name="New Volume", value=f"{volume}", inline=True)
 
         else:
-            return ctx.respond(embed=error_template("The volume must be between 1 and 100."), ephemeral=True)
+            return interaction.response.send_message(embed=error_template("The volume must be between 1 and 100."),
+                                                     ephemeral=True)
 
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="queue")
-    async def queue(self, ctx):
-        vc = ctx.voice_client
+    @app_commands.command(name="queue")
+    async def queue(self, interaction):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
 
         embed = embed_template()
@@ -163,56 +169,65 @@ class Main(discord.Cog):
         total_duration = 0
 
         for i, song in enumerate(vc.queue):
-            duration = datetime.timedelta(seconds=song.duration/1000)
-            total_duration += song.duration/1000
+            duration = datetime.timedelta(seconds=song.duration / 1000)
+            total_duration += song.duration / 1000
             embed.add_field(name=f"{i + 1}. `{song.title}`", value=f"Duration: {str(duration)}", inline=False)
 
             if (i + 1) % 10 == 0:
-                embed_list.append(embed.copy())
+                embed_list.append(copy.deepcopy(embed))
                 embed.clear_fields()
-            elif i == vc.queue.count - 1:
-                embed_list.append(embed.copy())
+            if i == vc.queue.count - 1:
+                # if vc.queue.count - 1 < 10:
+                #     continue
+                embed_list.append(copy.deepcopy(embed))
+
+        if not embed_list[-1].fields:
+            embed_list.pop(-1)
 
         if len(embed_list) > 0:
             embed_list[0].description = f"Total Queue Duration: {str(datetime.timedelta(seconds=total_duration))}"
-            paginator = discord.ext.pages.Paginator(
-                pages=embed_list, disable_on_timeout=True, timeout=120
-            )
-            await paginator.respond(ctx.interaction, ephemeral=False)
+            await SimplePaginator(timeout=120).start(interaction, pages=embed_list)
+
         else:
-            await ctx.respond(embed=embed)
+            await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="pause")
-    async def pause(self, ctx):
-        vc = ctx.voice_client
+    @app_commands.command(name="pause")
+    async def pause(self, interaction):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
-        await vc.set_pause(not vc.is_paused())
+        if vc.is_paused():
+            await vc.resume()
+        else:
+            await vc.pause()
 
         embed = embed_template()
         embed.title = "Paused" if vc.is_paused() else "Resumed"
         embed.description = f"Successfully {'paused' if vc.is_paused() else 'resumed'} the player."
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command(name="resume")
-    async def resume(self, ctx):
-        vc = ctx.voice_client
+    @app_commands.command(name="resume")
+    async def resume(self, interaction):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
-        await vc.set_pause(not vc.is_paused())
+        if vc.is_paused():
+            await vc.resume()
+        else:
+            await vc.pause()
 
         embed = embed_template()
         embed.title = "Paused" if vc.is_paused() else "Resumed"
         embed.description = f"Successfully {'paused' if vc.is_paused() else 'resumed'} the player."
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    @commands.slash_command()
-    async def shuffle(self, ctx):
-        vc = ctx.voice_client
+    @app_commands.command()
+    async def shuffle(self, interaction):
+        vc = interaction.guild.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
         song_list = []
 
@@ -228,14 +243,14 @@ class Main(discord.Cog):
         embed = embed_template()
         embed.title = "Shuffled"
         embed.description = "Successfully shuffled the queue."
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    async def cog_check(self, ctx) -> bool:
+    async def cog_check(self, interaction) -> bool:
         """A local check which applies to all commands in this cog."""
-        if not ctx.guild:
+        if not interaction.guild:
             raise commands.NoPrivateMessage
         return True
 
 
-def setup(client):
-    client.add_cog(Main(client))
+async def setup(client):
+    await client.add_cog(Main(client))
