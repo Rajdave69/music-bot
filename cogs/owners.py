@@ -1,47 +1,48 @@
 import sqlite3
 import discord
+from discord import app_commands
 from discord.ext import commands
-from backend import log, embed_footer, embed_color, embed_url, is_owner, owner_guilds
+from backend import log, embed_footer, embed_color, embed_url, is_owner, owner_guilds, error_template
 
 
-class Owners(commands.Cog):
+class Owners(commands.GroupCog, name="owners"):
     def __init__(self, client):
         self.client = client
 
-    owners = discord.SlashCommandGroup("owners", "Owner commands", guild_ids=owner_guilds)
+    # owners = discord.SlashCommandGroup("owners", "Owner commands", guild_ids=owner_guilds)
 
     @commands.Cog.listener()
     async def on_ready(self):
         log.info("Cog: Owners.py loaded.")
 
-    @owners.command()
-    async def reload(self, ctx, cog):
-        if not is_owner(ctx):
-            await ctx.respond("You are not the bot owner.")
+    @app_commands.command()
+    async def reload(self, interaction, cog):
+        if not is_owner(interaction):
+            await interaction.response.send_message("You are not the bot owner.")
             return
 
         try:
             self.client.reload_extension(f"cogs.{cog}")
-            await ctx.respond(f"Reloaded {cog}.")
+            await interaction.response.send_message(f"Reloaded {cog}.")
         except Exception as e:
-            await ctx.respond(f"Failed to reload {cog}.\n{e}")
+            await interaction.response.send_message(f"Failed to reload {cog}.\n{e}")
 
-    @owners.command()
-    async def load(self, ctx, cog):
-        if not is_owner(ctx):
-            await ctx.respond("You are not the bot owner.")
+    @app_commands.command()
+    async def load(self, interaction, cog):
+        if not is_owner(interaction):
+            await interaction.response.send_message("You are not the bot owner.")
             return
 
         try:
             self.client.load_extension(f"cogs.{cog}")
-            await ctx.respond(f"Loaded {cog}.")
+            await interaction.response.send_message(f"Loaded {cog}.")
         except Exception as e:
-            await ctx.respond(f"Failed to load {cog}.\n{e}")
+            await interaction.response.send_message(f"Failed to load {cog}.\n{e}")
 
-    @owners.command()
-    async def exec_sql(self, ctx, sql: str):
-        if not is_owner(ctx):
-            await ctx.respond("You are not the bot owner.")
+    @app_commands.command()
+    async def exec_sql(self, interaction, sql: str):
+        if not is_owner(interaction):
+            await interaction.response.send_message("You are not the bot owner.")
             return
 
         con = sqlite3.connect("./data/data.db")
