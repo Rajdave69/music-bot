@@ -5,7 +5,7 @@ from discord.ext import commands
 from backend import log, embed_footer, embed_color, embed_url, is_owner, owner_guilds, error_template
 
 
-class Owners(commands.GroupCog, name="owners"):
+class Owners(commands.GroupCog, name="owners", guild_ids=owner_guilds):
     def __init__(self, client):
         self.client = client
 
@@ -58,15 +58,15 @@ class Owners(commands.GroupCog, name="owners"):
             for row in res:
                 embed.add_field(name=row, value="‎", inline=False)
             embed.set_footer(text=embed_footer)
-            await ctx.respond(embed=embed)
+            await interaction.response.send_message(embed=embed)
 
         except Exception as e:
-            await ctx.respond(f"Failed to execute SQL.\n{e}")
+            await interaction.response.send_message(f"Failed to execute SQL.\n{e}")
 
-    @owners.command()
-    async def guilds(self, ctx):
-        if not is_owner(ctx):
-            await ctx.respond("You are not the bot owner.")
+    @app_commands.command()
+    async def guilds(self, interaction):
+        if not is_owner(interaction):
+            await interaction.response.send_message("You are not the bot owner.")
             return
 
         embed = discord.Embed(title="Guilds", description=f"Guilds the bot is in.",
@@ -74,7 +74,13 @@ class Owners(commands.GroupCog, name="owners"):
         for guild in self.client.guilds:
             embed.add_field(name=guild.name, value=guild.id, inline=False)
         embed.set_footer(text=embed_footer)
-        await ctx.respond(embed=embed)
+        await interaction.response.send_message(embed=embed)
+
+    # create a cog check
+    async def cog_check(self, interaction) -> bool:
+        if not is_owner(interaction):
+            await interaction.response.send_message(embed=error_template("You are not the bot owner."), ephemeral=True)
+            return False
 
 
 def setup(client):
