@@ -69,21 +69,22 @@ class Listeners(commands.Cog):
             return
 
         if len(after.channel.members) == 2 and before.self_deaf != after.self_deaf:
-            await member.guild.voice_client.set_pause(not after.self_deaf)
+            await member.guild.voice_client.set_pause(not after.self_deaf) # todo set_pause is removed
 
     @commands.Cog.listener()
-    async def on_application_command(self, ctx: discord.ApplicationContext):
-        log.info(f"Command `/{ctx.command.qualified_name}` was used by `{ctx.author}` in `{ctx.guild}`")
+    async def on_interaction(self, interaction):
+        if str(interaction.type) == "InteractionType.application_command":
+            log.info(f"Command `/{interaction.command.qualified_name}` was used by `{interaction.user}` in `{interaction.guild}`")
 
     @commands.Cog.listener()
-    async def on_application_command_error(self, ctx: discord.ApplicationContext, error: Exception):
+    async def on_interaction_error(self, interaction, error: Exception):    # todo test
         if isinstance(error, commands.NoPrivateMessage):
-            await ctx.respond("This command cannot be used in a DM.")
+            await interaction.followup.send("This command cannot be used in a DM.")
         else:
             if raise_errors:
                 raise error
 
-        log.error(f"Command {ctx.command.name} failed with error: {error}")
+        log.error(f"Command {interaction.command.name} failed with error: {error}")
 
     @tasks.loop(seconds=60 * 60)
     async def random_status(self):
@@ -120,5 +121,5 @@ class Listeners(commands.Cog):
         log.debug(f"[Listeners] | Member Count: {self.member_count}")
 
 
-def setup(client):
-    client.add_cog(Listeners(client))
+async def setup(client):
+    await client.add_cog(Listeners(client))
