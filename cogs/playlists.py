@@ -13,6 +13,7 @@ from discord.ext import commands
 from backend import log, embed_footer, embed_color, embed_url, get_user_playlists, vc_exists, embed_template, \
     error_template, increment_listens
 from discord.commands import option
+from discord import app_commands
 
 """
 Cog Playlists:
@@ -32,7 +33,7 @@ Cog Playlists:
 """
 
 
-class Playlists(commands.Cog):
+class Playlists(commands.GroupCog, name="owners"):
     def __init__(self, client):
         self.client = client
         self.con = sqlite3.connect("./data/data.db")
@@ -56,44 +57,43 @@ class Playlists(commands.Cog):
         
         """
 
-    playlists = discord.SlashCommandGroup("playlist", "Playlist commands")
-
     @commands.Cog.listener()
     async def on_ready(self):
         log.info("Cog: Playlists.py loaded.")
 
-    @playlists.command()
-    async def create(self, ctx, name: str,
-                     playlist_visibility: discord.Option(choices=[
-                         discord.OptionChoice(name="Private", value="0"),
-                         discord.OptionChoice(name="Public", value="1")
-                     ])
-                     ):
+    @app_commands.command()
+    @app_commands.describe(playlist_visibility="The visibility of the playlist. Can be either `public` or `private`.")
+    @app_commands.choices(playlist_visibility=[
+        discord.app_commands.Choice(name="public", value=1),
+        discord.app_commands.Choice(name="private", value=0)
+    ])
+    async def create(self, interaction, name: str,
+                     playlist_visibility: str):    # todo test
         # remove unicode characters and allow only a-z, A-Z, 0-9, and _ in playlist names
         if not name.isalnum() and not name.replace("-", "").replace("_", "").isalnum():
 
             # noinspection PyCompatibility
             if (better_name := ''.join(e for e in name if e.isalnum() or e == '_')) == "":
-                await ctx.respond(
+                await interaction.followup.send(
                     embed=error_template("Playlist names can only contain letters, numbers, and underscores."))
             else:
-                await ctx.respond(embed=error_template("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
+                await interaction.followup.send(embed=error_template("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
                                                        f"Use `{better_name}` instead?"))
 
             return
 
         # Check if the name is too small or too big
         if 3 > len(name) > 32:
-            await ctx.respond(embed=error_template("Playlist names must be from 3 to 32 characters long."))
+            await interaction.followup.send(embed=error_template("Playlist names must be from 3 to 32 characters long."))
             return
 
         # Check if the user already has a playlist with that name
-        if name in await get_user_playlists(ctx):
-            await ctx.respond(embed=error_template("You already have a playlist with that name."))
+        if name in await get_user_playlists(interaction):
+            await interaction.followup.send(embed=error_template("You already have a playlist with that name."))
             return
 
         if name[0].isdigit():
-            await ctx.respond(embed=error_template("Playlist names cannot start with a number."))
+            await interaction.followup.send(embed=error_template("Playlist names cannot start with a number."))
             return
 
         # Create a unique id with the first character being a number
