@@ -12,7 +12,6 @@ import yt_dlp
 from discord.ext import commands
 from backend import log, embed_footer, embed_color, embed_url, get_user_playlists, vc_exists, embed_template, \
     error_template, increment_listens
-from discord.commands import option
 from discord import app_commands
 
 """
@@ -33,7 +32,7 @@ Cog Playlists:
 """
 
 
-class Playlists(commands.GroupCog, name="owners"):
+class Playlists(commands.GroupCog, name="playlist"):
     def __init__(self, client):
         self.client = client
         self.con = sqlite3.connect("./data/data.db")
@@ -60,15 +59,16 @@ class Playlists(commands.GroupCog, name="owners"):
     @commands.Cog.listener()
     async def on_ready(self):
         log.info("Cog: Playlists.py loaded.")
+        await self.client.tree.sync()
 
     @app_commands.command()
     @app_commands.describe(playlist_visibility="The visibility of the playlist. Can be either `public` or `private`.")
     @app_commands.choices(playlist_visibility=[
-        discord.app_commands.Choice(name="public", value=1),
-        discord.app_commands.Choice(name="private", value=0)
+        discord.app_commands.Choice(name="public", value="1"),
+        discord.app_commands.Choice(name="private", value="0")
     ])
     async def create(self, interaction, name: str,
-                     playlist_visibility: str):    # todo test
+                     playlist_visibility: str):  # todo test
         # remove unicode characters and allow only a-z, A-Z, 0-9, and _ in playlist names
         if not name.isalnum() and not name.replace("-", "").replace("_", "").isalnum():
 
