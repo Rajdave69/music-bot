@@ -83,5 +83,5 @@ class Owners(commands.GroupCog, name="owners", guild_ids=owner_guilds):
             return False
 
 
-def setup(client):
-    client.add_cog(Owners(client))
+async def setup(client):
+    await client.add_cog(Owners(client))
