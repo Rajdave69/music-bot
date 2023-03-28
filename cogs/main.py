@@ -17,7 +17,7 @@ class Main(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Connected to Discord!")
+        log.info("Cog: Main.py Loaded")
         await self.connect_nodes()
         # await self.client.tree.sync()
 
@@ -181,8 +181,9 @@ class Main(commands.Cog):
                 #     continue
                 embed_list.append(copy.deepcopy(embed))
 
-        if not embed_list[-1].fields:
-            embed_list.pop(-1)
+        if embed_list:
+            if not embed_list[-1].fields:
+                embed_list.pop(-1)
 
         if len(embed_list) > 0:
             embed_list[0].description = f"Total Queue Duration: {str(datetime.timedelta(seconds=total_duration))}"
