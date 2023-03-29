@@ -3,6 +3,8 @@ import sys
 import aiosqlite
 import discord
 import logging
+
+import discord.app_commands
 from discord.ext import commands
 
 intents = discord.Intents.default()
@@ -59,7 +61,7 @@ def colorlogger(name='music-bot'):
 
 log = colorlogger()
 
-client = commands.Bot(intents=intents)  # Creating the Bot
+client = commands.Bot(intents=intents, command_prefix="!")  # Creating the Bot
 
 
 async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or None]:
@@ -103,15 +105,16 @@ def is_owner(ctx: commands.Context) -> bool:
     return str(ctx.author.id) in owner_ids
 
 
-async def vc_exists(ctx) -> bool:
-    if ctx.guild is None:  # todo check if the ctx.author is in the vc too
+async def vc_exists(interaction) -> bool:
+    if interaction.guild is None:  # todo check if the ctx.author is in the vc too
         raise commands.NoPrivateMessage
 
-    if not ctx.voice_client:
-        await ctx.respond(embed=error_template("I am not connected to a voice channel or playing anything."), ephemeral=True)
+    if not interaction.guild.voice_client:
+        await interaction.response.send_message(embed=error_template("I am either not connected to a voice channel or "
+                                                                     "not playing anything."), ephemeral=True)
 
-    elif not ctx.voice_client.is_playing():
-        await ctx.respond(embed=error_template("I am not playing anything."), ephemeral=True)
+    elif not interaction.guild.voice_client.is_playing():
+        await interaction.response.send_message(embed=error_template("I am not playing anything."), ephemeral=True)
 
     return True
 
