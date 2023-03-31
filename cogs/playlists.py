@@ -77,20 +77,25 @@ class Playlists(commands.GroupCog, name="playlist"):
                 await interaction.followup.send(
                     embed=error_template("Playlist names can only contain letters, numbers, and underscores."))
             else:
-                await interaction.followup.send(embed=error_template("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
-                                                       f"Use `{better_name}` instead?"))
+                await interaction.followup.send(
+                    embed=error_template("Invalid playlist name. Only a-z, 0-9, `-`, `_` are allowed.\n"
+                                         f"Use `{better_name}` instead?"))
 
             return
 
         # Check if the name is too small or too big
         if 3 > len(name) > 32:
-            await interaction.followup.send(embed=error_template("Playlist names must be from 3 to 32 characters long."))
+            await interaction.followup.send(
+                embed=error_template("Playlist names must be from 3 to 32 characters long."))
             return
 
         # Check if the user already has a playlist with that name
-        if name in await get_user_playlists(interaction):
-            await interaction.followup.send(embed=error_template("You already have a playlist with that name."))
-            return
+        async with aiosqlite.connect('data/data.db') as db:
+            async with db.execute("SELECT name FROM playlists WHERE author = ?", (interaction.user.id,)) as cursor:
+                playlists = await cursor.fetchall()
+                if name in playlists:
+                    await interaction.followup.send(embed=error_template("You already have a playlist with that name."))
+                    return
 
         if name[0].isdigit():
             await interaction.followup.send(embed=error_template("Playlist names cannot start with a number."))
