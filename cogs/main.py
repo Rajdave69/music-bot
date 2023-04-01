@@ -5,8 +5,9 @@ from discord.ext import commands
 from discord import app_commands
 import wavelink
 from backend import wavelink_host, wavelink_password, wavelink_port, log, vc_exists, embed_template, \
-    owner_ids, error_template, SimplePaginator
+    owner_ids, error_template
 import sqlite3
+import paginator
 
 
 class Main(commands.Cog):
@@ -149,8 +150,10 @@ class Main(commands.Cog):
             embed.add_field(name="New Volume", value=f"{volume}", inline=True)
 
         else:
-            return interaction.response.send_message(embed=error_template("The volume must be between 1 and 100."),
-                                                     ephemeral=True)
+            return interaction.response.send_message(
+                embed=error_template("The volume must be between 1 and 100."),
+                ephemeral=True
+            )
 
         await interaction.response.send_message(embed=embed)
 
@@ -187,7 +190,7 @@ class Main(commands.Cog):
 
         if len(embed_list) > 0:
             embed_list[0].description = f"Total Queue Duration: {str(datetime.timedelta(seconds=total_duration))}"
-            await SimplePaginator(timeout=120).start(interaction, pages=embed_list)
+            await paginator.Simple(timeout=120).start(interaction, pages=embed_list)
 
         else:
             await interaction.response.send_message(embed=embed)
