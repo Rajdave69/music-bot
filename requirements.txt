@@ -4,4 +4,4 @@ wavelink==2.0.3
 colorlog==6.7.0
 aiosqlite==0.18.0
 yt-dlp==2023.3.4
-discord.py-pagination==0.0.5
+simple-embed-pagination==1.0.2
