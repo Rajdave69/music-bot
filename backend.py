@@ -64,41 +64,41 @@ log = colorlogger()
 client = commands.Bot(intents=intents, command_prefix="!")  # Creating the Bot
 
 
-async def get_user_playlists(ctx: discord.AutocompleteContext) -> list[str or None]:
+async def get_user_playlists(interaction: discord.Interaction, current) -> list[discord.app_commands.Choice[str]]:
+    print(interaction, current)
     # get the current textbox (discord option)'s value
-    current_val = ctx.interaction.data['options'][0]['value'].lower()
-    print(current_val)
+    # current = interaction.data['options'][0]['value'].lower()
 
     async with aiosqlite.connect('data/data.db') as db:
-        if current_val:
-
+        if current:
+            log.debug(f"Current: {current}")
             # If it is a number, then it is a playlist id
-            if current_val[0].isdigit():
-                # select id from public playlist where id starts with current_val
+            if current[0].isdigit():
+                # select id from public playlist where id starts with current
                 async with db.execute("SELECT id, name FROM playlists WHERE id LIKE ? AND visibility = '1'",
-                                      (current_val + '%',)) as cursor:
+                                      (current + '%',)) as cursor:
                     playlists = await cursor.fetchall()
-                    print(playlists)
+                    log.debug(playlists)
                     if playlists:
-                        return list({f"{x[0]} | {x[1]}" for x in playlists})
+                        return list({discord.app_commands.Choice[f"{x[0]} | {x[1]}"] for x in playlists})
 
             # If it is a letter, then it is a playlist name
             else:
                 async with db.execute("SELECT name FROM playlists WHERE author = ? AND  name LIKE ?",
-                                      (ctx.interaction.user.id, current_val + '%')) as cursor:
+                                      (interaction.user.id, current + '%')) as cursor:
                     playlists = await cursor.fetchall()
+                    log.debug(playlists)
                     if playlists:
-                        return list({x[0] for x in playlists})
+                        return list({discord.app_commands.Choice[x[0]] for x in playlists})
 
-            return []
-
-        async with db.execute("SELECT name FROM playlists WHERE author = ?", (ctx.interaction.user.id,)) as cursor:
+        async with db.execute("SELECT name FROM playlists WHERE author = ?", (interaction.user.id,)) as cursor:
             playlists = await cursor.fetchall()
 
+            log.debug(playlists)
             if not playlists:
                 return []
 
-        return list({x[0] for x in playlists}) if playlists else []
+        return list(discord.app_commands.Choice[x[0]] for x in playlists) if playlists else []
 
 
 def is_owner(ctx: commands.Context) -> bool:
