@@ -192,22 +192,19 @@ class Playlists(commands.GroupCog, name="playlist"):
         self.cur.execute("DELETE FROM playlists WHERE id = ?", (id_,))
         self.con.commit()
 
-        embed = discord.Embed(title="Playlist", description=f"Playlist `{name}` deleted.",
+        embed = discord.Embed(title="Playlist", description=f"Playlist `{playlist}` deleted.",
                               url=embed_url, color=embed_color)
         embed.set_footer(text=embed_footer)
-        await ctx.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command(name="list", description="List the songs in a playlist.")
-    @option("playlist",
-            description="The playlist to list.",
-            autocomplete=get_user_playlists
-            )
-    async def list_(self, ctx, playlist):
-        await ctx.defer()
+    @app_commands.command(name="list", description="List the songs in a playlist.")
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def list_(self, interaction, playlist: str):
+        await interaction.response.defer()
 
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
         if not (res := self.cur.fetchone()):
-            return await ctx.followup.send(
+            return await interaction.followup.send(
                 embed=error_template("You don't have a playlist with that name."), ephemeral=True)
 
         id_ = res[0]
