@@ -107,7 +107,7 @@ class Playlists(commands.GroupCog, name="playlist"):
 
         try:
             self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?, ?)",
-                             (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility), 0))
+                             (id_, interaction.user.id, name.lower().strip(), int(playlist_visibility), 0))
 
         # If the ID already exists (The chance of this happening is 1 in 36^8!)
         except sqlite3.IntegrityError:
@@ -117,7 +117,7 @@ class Playlists(commands.GroupCog, name="playlist"):
 
                 try:
                     self.cur.execute("INSERT INTO playlists VALUES (?, ?, ?, ?, ?)",
-                                     (id_, ctx.author.id, name.lower().strip(), int(playlist_visibility), 0))
+                                     (id_, interaction.user.id, name.lower().strip(), int(playlist_visibility), 0))
                     break
 
                 # If the ID already exists AGAIN (The chance of this happening is 1 in 36^16!)
@@ -130,65 +130,61 @@ class Playlists(commands.GroupCog, name="playlist"):
         embed.description = f"Your playlist `{name}` has been created with the ID `{id_}`.\n" \
                             f"Use `/playlist add` to add songs to your playlist."  # TODO: add a command link
 
-        await ctx.respond(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command(name="add", description="Add a song to a playlist.")
-    @option("playlist",
-            description="The playlist to add a song into.",
-            autocomplete=get_user_playlists
-            )
-    async def add(self, ctx, playlist):
-        await ctx.defer()
-        vc = ctx.voice_client
+    @app_commands.command(name="add", description="Add a song to a playlist.")
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def add(self, interaction, playlist: str):
+        await interaction.response.defer()
+        vc = interaction.voice_client
 
-        if not await vc_exists(ctx):
+        if not await vc_exists(interaction):
             return
 
-        if ctx.author.voice.channel.id != vc.channel.id:
-            return await ctx.followup.send(
+        if interaction.user.voice.channel.id != vc.channel.id:
+            return await interaction.followup.send(
                 embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
 
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
 
         if (res := self.cur.fetchone()) is None:
-            return await ctx.followup.send(
+            return await interaction.followup.send(
                 embed=error_template("You don't have a playlist with that name."), ephemeral=True)
 
         id_ = res[0]
 
         self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
-                         (id_, ctx.voice_client.current.identifier))
+                         (id_, interaction.voice_client.current.identifier))
         if self.cur.fetchone():
-            await ctx.followup.send(embed=error_template("This song is already in the playlist."), ephemeral=True)
+            await interaction.followup.send(embed=error_template("This song is already in the playlist."),
+                                            ephemeral=True)
             return
 
         self.cur.execute("INSERT INTO playlist_data VALUES (?, ?)",
-                         (id_, ctx.voice_client.current.identifier))
+                         (id_, interaction.voice_client.current.identifier))
         self.con.commit()
 
         embed = embed_template()
         embed.title = "Playlist"
         embed.description = f"Successfully added the song to your playlist."
         embed.add_field(name="Playlist", value=f"`{playlist}`", inline=False)
-        embed.add_field(name="Song", value=f"[{ctx.voice_client.current.title}]({ctx.voice_client.current.uri})",
+        embed.add_field(name="Song",
+                        value=f"[{interaction.voice_client.current.title}]({interaction.voice_client.current.uri})",
                         inline=False)
 
-        await ctx.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command(name="delete", description="Delete a playlist.")
-    @option("playlist",
-            description="The playlist to delete.",
-            autocomplete=get_user_playlists
-            )
-    async def delete(self, ctx, name):
-        await ctx.defer()
+    @app_commands.command(name="delete", description="Delete a playlist.")
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def delete(self, interaction, playlist: str):
+        await interaction.response.defer()
 
         self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?",
-                         (ctx.author.id, name))
+                         (interaction.user.id, playlist))
 
         if not (res := self.cur.fetchone()):
-            return await ctx.followup.send(embed=error_template("You don't have a playlist with that name."),
-                                           ephemeral=True)
+            return await interaction.followup.send(embed=error_template("You don't have a playlist with that name."),
+                                                   ephemeral=True)
 
         id_ = res[0]
 
