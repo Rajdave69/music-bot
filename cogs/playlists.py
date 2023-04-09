@@ -279,15 +279,16 @@ class Playlists(commands.GroupCog, name="playlist"):
         song_list = []
 
         for song_id in song_ids:
-            song = await ctx.voice_client.current_node.build_track(cls=wavelink.YouTubeTrack, encoded=song_id[0])
+            song = await interaction.voice_client.current_node.build_track(cls=wavelink.YouTubeTrack,
+                                                                           encoded=song_id[0])
 
-            if not ctx.voice_client.is_playing():
-                await ctx.voice_client.play(song)
+            if not interaction.voice_client.is_playing():
+                await interaction.voice_client.play(song)
             else:
                 song_list.append(song)
 
         if song_list:
-            ctx.voice_client.queue.extend(song_list, atomic=False)
+            interaction.voice_client.queue.extend(song_list, atomic=False)
 
         embed = embed_template()
         embed.title = "Playlist"
@@ -296,31 +297,32 @@ class Playlists(commands.GroupCog, name="playlist"):
         embed.add_field(name="Songs", value=f"`{len(song_ids)}`", inline=True)
         embed.add_field(name="Shuffle", value=f"`{shuffle}`", inline=True)
 
-        await ctx.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command()
-    async def remove(self, ctx, playlist):
-        await ctx.defer()
+    @app_commands.command()
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def remove(self, interaction, playlist: str):
+        await interaction.response.defer()
 
         # check if playlist exists
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
         if not (res := self.cur.fetchone()):
-            return await ctx.followup.send(
+            return await interaction.followup.send(
                 embed=error_template("You don't have a playlist with that name."), ephemeral=True)
 
         id_ = res[0]
         print(res)
 
         # check if the bot is playing anything
-        if ctx.voice_client:
-            if ctx.voice_client.is_playing():
+        if interaction.voice_client:
+            if interaction.voice_client.is_playing():
                 # check if the song is in the playlist
                 self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
-                                 (id_, ctx.voice_client.current.identifier))
+                                 (id_, interaction.voice_client.current.identifier))
                 if self.cur.fetchone():
                     # remove the song from the playlist
                     self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?",
-                                     (id_, ctx.voice_client.current.identifier))
+                                     (id_, interaction.voice_client.current.identifier))
                     self.con.commit()
 
                     embed = embed_template()
