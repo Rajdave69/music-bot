@@ -433,21 +433,21 @@ class Playlists(commands.GroupCog, name="playlist"):
         embed.add_field(name="Visibility", value=f"{'Public' if details[3] == 1 else 'Private'}", inline=True)
         embed.add_field(name="Listens", value=f"{details[4]}", inline=True)
 
-        await ctx.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command(name="playlists")
-    async def playlists_(self, ctx, only_public: bool = False):
+    @app_commands.command(name="playlists")
+    async def playlists_(self, interaction, only_public: bool = False):
         # get all playlists of this user
-        await ctx.defer()
+        await interaction.response.defer()
 
         async with aiosqlite.connect("data/data.db") as con:
             if only_public:
                 async with con.execute("SELECT id, author, visibility FROM playlists WHERE author = ? AND visibility "
-                                       "= ?", (ctx.author.id,  True)) as cur:
+                                       "= ?", (interaction.user.id, True)) as cur:
                     playlists = await cur.fetchall()
             else:
                 async with con.execute("SELECT id, author, visibility FROM playlists WHERE author = ?",
-                                       (ctx.author.id,)) as cur:
+                                       (interaction.user.id,)) as cur:
                     playlists = await cur.fetchall()
 
         embed = embed_template()
@@ -459,24 +459,21 @@ class Playlists(commands.GroupCog, name="playlist"):
             embed.add_field(
                 name=f"`{playlist[0]}`",
                 value=f"ID: `{playlist[1]}`\n"
-                      # Show visibility as "Public" or "Private", only if only_public is False
+                # Show visibility as "Public" or "Private", only if only_public is False
                       f"{'Visibility': `{'Private' if playlist[2] == 0 else 'Public'}` if not only_public else ''}",
                 inline=False)
 
-        await ctx.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command()
-    @option("playlist",
-            description="The selected playlist.",
-            autocomplete=get_user_playlists
-            )
-    async def visibility(self, ctx, playlist: str, visibility: bool):
-        await ctx.defer()
+    @app_commands.command()
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def visibility(self, interaction, playlist: str, visibility: bool):
+        await interaction.response.defer()
 
         # check if playlist exists
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
         if not (res := self.cur.fetchone()):
-            return await ctx.followup.send(
+            return await interaction.followup.send(
                 embed=error_template("You don't have a playlist with that name."), ephemeral=True
             )
 
