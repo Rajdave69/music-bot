@@ -34,9 +34,7 @@ try:
 
     bot_token: str = config.get('secret', 'discord_token')
 
-    wavelink_host: str = config.get('wavelink', 'host')
-    wavelink_port: int = int(config.get('wavelink', 'port'))
-    wavelink_password: str = config.get('wavelink', 'password')
+    lavalink_creds = dict(config.items('nodes'))
 
 except Exception as err:
     print("Error getting variables from the config file. Error: " + str(err))
