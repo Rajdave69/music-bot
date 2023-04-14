@@ -4,7 +4,7 @@ import random
 from discord.ext import commands
 from discord import app_commands
 import wavelink
-from backend import wavelink_host, wavelink_password, wavelink_port, log, vc_exists, embed_template, \
+from backend import lavalink_creds, log, vc_exists, embed_template, \
     owner_ids, error_template
 import sqlite3
 import paginator
@@ -19,13 +19,21 @@ class Main(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         log.info("Cog: Main.py Loaded")
-        await self.connect_nodes()
-        # await self.client.tree.sync()
+        try:
+            await self.connect_nodes()
+        except Exception as e:
+            log.critical(f"Failed to connect to nodes.\n{e}")
+        await self.client.tree.sync()
 
     async def connect_nodes(self):
         await self.client.wait_until_ready()
-        node1: wavelink.Node = wavelink.Node(uri=wavelink_host + ":" + str(wavelink_port), password=wavelink_password)
-        await wavelink.NodePool.connect(client=self.client, nodes=[node1])
+        nodes = []
+
+        for cred in lavalink_creds.keys():
+            nodes.append(wavelink.Node(uri=cred.strip().replace("|", ":"), password=lavalink_creds[cred]))
+
+        await wavelink.NodePool.connect(client=self.client, nodes=nodes)
+        log.info(f"Connected to {len(nodes)} node(s).")
 
     @app_commands.command()
     async def play(self, interaction, song: str):
