@@ -73,30 +73,48 @@ async def get_user_playlists(interaction: discord.Interaction, current) -> list[
             # If it is a number, then it is a playlist id
             if current[0].isdigit():
                 # select id from public playlist where id starts with current
-                async with db.execute("SELECT id, name FROM playlists WHERE id LIKE ? AND visibility = '1'",
+                async with db.execute("SELECT name, id FROM playlists WHERE id LIKE ? AND visibility = '1'",
                                       (current + '%',)) as cursor:
                     playlists = await cursor.fetchall()
                     log.debug(playlists)
                     if playlists:
-                        return list({discord.app_commands.Choice[f"{x[0]} | {x[1]}"] for x in playlists})
+                        return list({discord.app_commands.Choice(name=f"{x[1]} | {x[0]}", value=x[1]) for x in playlists})
 
             # If it is a letter, then it is a playlist name
             else:
-                async with db.execute("SELECT name FROM playlists WHERE author = ? AND  name LIKE ?",
+                async with db.execute("SELECT name, id FROM playlists WHERE author = ? AND name LIKE ?",
                                       (interaction.user.id, current + '%')) as cursor:
                     playlists = await cursor.fetchall()
                     log.debug(playlists)
                     if playlists:
-                        return list({discord.app_commands.Choice[x[0]] for x in playlists})
+                        return list({discord.app_commands.Choice(name=x[0], value=x[1]) for x in playlists})
 
-        async with db.execute("SELECT name FROM playlists WHERE author = ?", (interaction.user.id,)) as cursor:
+        async with db.execute("SELECT name, id FROM playlists WHERE author = ?", (interaction.user.id,)) as cursor:
             playlists = await cursor.fetchall()
 
             log.debug(playlists)
             if not playlists:
                 return []
 
-        return list(discord.app_commands.Choice[x[0]] for x in playlists) if playlists else []
+        return [discord.app_commands.Choice(name=x[0], value=x[1]) for x in playlists] \
+            if playlists else []
+
+
+async def refresh_cache():
+    log.debug("cache old " + str(cache))
+    cache.clear()
+    con = sqlite3.connect('data/data.db')
+    cur = con.cursor()
+
+    cur.execute("SELECT * FROM playlists")
+    playlists = cur.fetchall()
+
+    for playlist in playlists:
+        cache[playlist[0]] = playlist[1]
+
+    con.close()
+
+    log.debug("cache new " + str(cache))
 
 
 def is_owner(ctx: commands.Context) -> bool:
