@@ -4,7 +4,6 @@ import random
 import sqlite3
 import string
 import zipfile
-
 import aiosqlite
 import discord
 import wavelink
@@ -93,7 +92,7 @@ class Playlists(commands.GroupCog, name="playlist"):
         async with aiosqlite.connect('data/data.db') as db:
             async with db.execute("SELECT name FROM playlists WHERE author = ?", (interaction.user.id,)) as cursor:
                 playlists = await cursor.fetchall()
-                if name in playlists:
+                if name.strip().lower() in [i for i in playlists]:
                     await interaction.followup.send(embed=error_template("You already have a playlist with that name."))
                     return
 
@@ -136,7 +135,8 @@ class Playlists(commands.GroupCog, name="playlist"):
     @app_commands.autocomplete(playlist=get_user_playlists)
     async def add(self, interaction, playlist: str):
         await interaction.response.defer()
-        vc = interaction.voice_client
+        log.debug(playlist)
+        vc = interaction.guild.voice_client
 
         if not await vc_exists(interaction):
             return
@@ -145,7 +145,7 @@ class Playlists(commands.GroupCog, name="playlist"):
             return await interaction.followup.send(
                 embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
 
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND id = ?", (interaction.user.id, playlist))
 
         if (res := self.cur.fetchone()) is None:
             return await interaction.followup.send(
