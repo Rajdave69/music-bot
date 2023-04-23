@@ -78,7 +78,8 @@ async def get_user_playlists(interaction: discord.Interaction, current) -> list[
                     playlists = await cursor.fetchall()
                     log.debug(playlists)
                     if playlists:
-                        return list({discord.app_commands.Choice(name=f"{x[1]} | {x[0]}", value=x[1]) for x in playlists})
+                        return list(
+                            {discord.app_commands.Choice(name=f"{x[1]} | {x[0]}", value=x[0]) for x in playlists})
 
             # If it is a letter, then it is a playlist name
             else:
@@ -87,7 +88,7 @@ async def get_user_playlists(interaction: discord.Interaction, current) -> list[
                     playlists = await cursor.fetchall()
                     log.debug(playlists)
                     if playlists:
-                        return list({discord.app_commands.Choice(name=x[0], value=x[1]) for x in playlists})
+                        return list({discord.app_commands.Choice(name=x[0], value=x[0]) for x in playlists})
 
         async with db.execute("SELECT name, id FROM playlists WHERE author = ?", (interaction.user.id,)) as cursor:
             playlists = await cursor.fetchall()
@@ -96,25 +97,8 @@ async def get_user_playlists(interaction: discord.Interaction, current) -> list[
             if not playlists:
                 return []
 
-        return [discord.app_commands.Choice(name=x[0], value=x[1]) for x in playlists] \
+        return [discord.app_commands.Choice(name=x[0], value=x[0]) for x in playlists] \
             if playlists else []
-
-
-async def refresh_cache():
-    log.debug("cache old " + str(cache))
-    cache.clear()
-    con = sqlite3.connect('data/data.db')
-    cur = con.cursor()
-
-    cur.execute("SELECT * FROM playlists")
-    playlists = cur.fetchall()
-
-    for playlist in playlists:
-        cache[playlist[0]] = playlist[1]
-
-    con.close()
-
-    log.debug("cache new " + str(cache))
 
 
 def is_owner(ctx: commands.Context) -> bool:
