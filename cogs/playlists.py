@@ -145,7 +145,7 @@ class Playlists(commands.GroupCog, name="playlist"):
             return await interaction.followup.send(
                 embed=error_template("You are not in the same voice channel as me."), ephemeral=True)
 
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND id = ?", (interaction.user.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
 
         if (res := self.cur.fetchone()) is None:
             return await interaction.followup.send(
@@ -154,14 +154,14 @@ class Playlists(commands.GroupCog, name="playlist"):
         id_ = res[0]
 
         self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
-                         (id_, interaction.voice_client.current.identifier))
+                         (id_, interaction.guild.voice_client.current.encoded))
         if self.cur.fetchone():
             await interaction.followup.send(embed=error_template("This song is already in the playlist."),
                                             ephemeral=True)
             return
 
         self.cur.execute("INSERT INTO playlist_data VALUES (?, ?)",
-                         (id_, interaction.voice_client.current.identifier))
+                         (id_, interaction.guild.voice_client.current.encoded))
         self.con.commit()
 
         embed = embed_template()
@@ -169,7 +169,7 @@ class Playlists(commands.GroupCog, name="playlist"):
         embed.description = f"Successfully added the song to your playlist."
         embed.add_field(name="Playlist", value=f"`{playlist}`", inline=False)
         embed.add_field(name="Song",
-                        value=f"[{interaction.voice_client.current.title}]({interaction.voice_client.current.uri})",
+                        value=f"[{interaction.guild.voice_client.current.title}]({interaction.guild.voice_client.current.uri})",
                         inline=False)
 
         await interaction.followup.send(embed=embed)
@@ -226,48 +226,43 @@ class Playlists(commands.GroupCog, name="playlist"):
 
             counter += 1
 
-            if counter == 10:
+            if counter == 10:   # TODO fix this
                 counter = 1
                 embed_list.append(embed.copy())
                 embed.clear_fields()
 
         if len(embed_list) == 0:
-            await ctx.followup.send(embed=error_template("This playlist is empty."), ephemeral=True)
+            await interaction.followup.send(embed=error_template("This playlist is empty."), ephemeral=True)
 
-        paginator = discord.ext.pages.Paginator(
-            pages=embed_list, disable_on_timeout=True, timeout=120
-        )
-        await paginator.respond(ctx.interaction)
+        import paginator
+        await paginator.Simple(timeout=60).start(interaction, embed_list)
 
-    @playlists.command(name="play", description="Play a playlist.")
-    @option("playlist",
-            description="The playlist to play.",
-            autocomplete=get_user_playlists
-            )
-    async def play(self, ctx, playlist: str, shuffle: bool = False):
-        await ctx.defer()
+    @app_commands.command(name="play", description="Play a playlist.")
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def play(self, interaction, playlist: str, shuffle: bool = False):
+        await interaction.response.defer()
 
         # Try to look for the playlist in the author's playlists
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
         if not (res := self.cur.fetchone()):
 
             # If the playlist is not in the author's playlists, try to look for it in the global playlists
-            self.cur.execute("SELECT id FROM playlists WHERE name = ? AND visibility = '1'", (playlist,))
+            self.cur.execute("SELECT id FROM playlists WHERE id = ? AND visibility = '1'", (playlist,))
             if not (res := self.cur.fetchone()):
                 # If the playlist is not in the global playlists, return
-                await ctx.followup.send(
+                await interaction.followup.send(
                     embed=error_template("There is no playlist with that name or ID. Is it public?"), ephemeral=True)
                 return
 
         id_ = res[0]
         await increment_listens(id_)
 
-        if not ctx.voice_client:
+        if not interaction.guild.voice_client:
             try:
-                await ctx.author.voice.channel.connect(cls=wavelink.Player)
-                await ctx.voice_client.set_volume(50)
+                await interaction.user.voice.channel.connect(cls=wavelink.Player)
+                await interaction.guild.voice_client.set_volume(50)
             except AttributeError:
-                return await ctx.followup.send("You are not connected to a voice channel.")
+                return await interaction.followup.send("You are not connected to a voice channel.")
 
         self.cur.execute("SELECT song FROM playlist_data WHERE id = ?",
                          (id_,))
@@ -279,16 +274,18 @@ class Playlists(commands.GroupCog, name="playlist"):
         song_list = []
 
         for song_id in song_ids:
-            song = await interaction.voice_client.current_node.build_track(cls=wavelink.YouTubeTrack,
-                                                                           encoded=song_id[0])
+            song = await interaction.guild.voice_client.current_node.build_track(
+                cls=wavelink.YouTubeTrack,
+                encoded=song_id[0]
+            )
 
-            if not interaction.voice_client.is_playing():
-                await interaction.voice_client.play(song)
+            if not interaction.guild.voice_client.is_playing():
+                await interaction.guild.voice_client.play(song)
             else:
                 song_list.append(song)
 
         if song_list:
-            interaction.voice_client.queue.extend(song_list, atomic=False)
+            interaction.guild.voice_client.queue.extend(song_list, atomic=False)
 
         embed = embed_template()
         embed.title = "Playlist"
@@ -314,15 +311,15 @@ class Playlists(commands.GroupCog, name="playlist"):
         print(res)
 
         # check if the bot is playing anything
-        if interaction.voice_client:
-            if interaction.voice_client.is_playing():
+        if interaction.guild.voice_client:
+            if interaction.guild.voice_client.is_playing():
                 # check if the song is in the playlist
                 self.cur.execute("SELECT * FROM playlist_data WHERE id = ? AND song = ?",
-                                 (id_, interaction.voice_client.current.identifier))
+                                 (id_, interaction.guild.voice_client.current.encoded))
                 if self.cur.fetchone():
                     # remove the song from the playlist
                     self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?",
-                                     (id_, interaction.voice_client.current.identifier))
+                                     (id_, interaction.guild.voice_client.current.encoded))
                     self.con.commit()
 
                     embed = embed_template()
@@ -330,23 +327,23 @@ class Playlists(commands.GroupCog, name="playlist"):
                     embed.description = f"Removed the current song from the playlist."
                     embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
                     embed.add_field(name="Song",
-                                    value=f"[{ctx.voice_client.current.title}]({ctx.voice_client.current.uri})",
+                                    value=f"[{interaction.guild.voice_client.current.title}]({interaction.guild.voice_client.current.uri})",
                                     inline=False)
 
-                    await ctx.followup.send(embed=embed)
+                    await interaction.followup.send(embed=embed)
 
                 else:
-                    embed = error_template("The song that's currently playing is not already in the playlist.")
+                    embed = error_template("The song that's currently playing is not already in the playl ist.")
                     embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
                     embed.add_field(name="Song",
-                                    value=f"[{ctx.voice_client.current.title}]({ctx.voice_client.current.uri})",
+                                    value=f"[{interaction.guild.voice_client.current.title}]({interaction.guild.voice_client.current.uri})",
                                     inline=False)
-                    await ctx.followup.send(embed=embed, ephemeral=True)
+                    await interaction.followup.send(embed=embed, ephemeral=True)
 
         else:  # TODO fix this
             self.cur.execute("SELECT song FROM playlist_data WHERE id = ?", (id_,))
             if not (songs := self.cur.fetchall()):
-                return await ctx.followup.send(embed=error_template("The playlist is empty."), ephemeral=True)
+                return await interaction.followup.send(embed=error_template("The playlist is empty."), ephemeral=True)
             songs = [song[0] for song in songs]
 
             # create a context menu to select songs to remove
@@ -360,11 +357,9 @@ class Playlists(commands.GroupCog, name="playlist"):
 
                 option_list.append(discord.SelectOption(
                     label=song_obj.title[:97] + "..." if len(str(song_obj.title)) > 100 else song_obj.title,
-                    value=str(songs.index(song_obj.identifier)),
+                    value=str(songs.index(song_obj.encoded)),
                     description=song_obj.author[:97] + "..." if len(str(song_obj.author)) > 100 else song_obj.author,
                 ))
-
-            print(option_list)
 
             select = discord.ui.Select(  # TODO playlist remove context menu
                 placeholder="Select songs to remove.",
@@ -378,38 +373,36 @@ class Playlists(commands.GroupCog, name="playlist"):
             embed.description = "Select the songs to remove from the playlist."
             embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
 
-            await ctx.followup.send(
+            await interaction.followup.send(
                 embed=embed,
                 components=[select]
             )
 
             try:
-                interaction = await self.bot.wait_for("select_option", check=lambda i: i.user == ctx.author, timeout=60)
+                interaction = await self.client.wait_for("select_option", check=lambda i: i.user == interaction.user,
+                                                         timeout=60)
             except asyncio.TimeoutError:
-                return await ctx.followup.edit("Timed out.")
+                return await interaction.followup.edit("Timed out.")
 
             # remove songs from playlist
             for option in interaction.values:
                 self.cur.execute("DELETE FROM playlist_data WHERE id = ? AND song = ?", (id_, option))
                 self.con.commit()
 
-    @playlists.command(name="info")
-    @option("playlist",
-            description="The playlist to select.",
-            autocomplete=get_user_playlists
-            )
-    async def info_(self, ctx, playlist: str):
-        await ctx.defer()
+    @app_commands.command(name="info")
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def info_(self, interaction, playlist: str):
+        await interaction.response.defer()
 
         # Try to look for the playlist in the author's playlists
-        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+        self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (interaction.user.id, playlist))
         if not (res := self.cur.fetchone()):
 
             # If the playlist is not in the author's playlists, try to look for it in the global playlists
             self.cur.execute("SELECT id FROM playlists WHERE name = ? AND visibility = '1'", (playlist,))
             if not (res := self.cur.fetchone()):
                 # If the playlist is not in the global playlists, return
-                await ctx.followup.send("There is no playlist with that name or ID. Is it public?")
+                await interaction.followup.send("There is no playlist with that name or ID. Is it public?")
                 return
 
         id_ = res[0]
@@ -488,24 +481,22 @@ class Playlists(commands.GroupCog, name="playlist"):
         embed.add_field(name="Playlist", value=f"`{playlist}`", inline=True)
         embed.add_field(name="Visibility", value=f"`{visibility}`", inline=True)
 
-        await ctx.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed)
 
-    @playlists.command()
-    @option("playlist",
-            description="The selected playlist.",
-            autocomplete=get_user_playlists
-            )
-    async def export(self, ctx, playlist: str, export_format: str):
-        await ctx.defer()
+    @app_commands.command()
+    @app_commands.autocomplete(playlist=get_user_playlists)
+    async def export(self, interaction, playlist: str, export_format: str):
+        await interaction.response.defer()
 
         # check if playlist exists
         if playlist[0].isdigit():
             self.cur.execute("SELECT id FROM playlists WHERE id = ? AND visibility = '1'", (playlist,))
         else:
-            self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?", (ctx.author.id, playlist))
+            self.cur.execute("SELECT id FROM playlists WHERE author = ? AND name = ?",
+                             (interaction.user.id, playlist))
 
         if not (res := self.cur.fetchone()):
-            return await ctx.followup.send(
+            return await interaction.followup.send(
                 embed=error_template(
                     "You don't have a playlist with that name, or a playlist with that ID doesn't exist."
                 ),
@@ -522,7 +513,7 @@ class Playlists(commands.GroupCog, name="playlist"):
                 # build the song objects
                 songs = []
                 for song_id in song_ids:
-                    song = await ctx.voice_client.current_node.build_track(wavelink.YouTubeTrack, song_id)
+                    song = await interaction.guild.voice_client.current_node.build_track(wavelink.YouTubeTrack, song_id)
                     songs.append(song.uri)
                     print(song.uri)
 
@@ -565,8 +556,8 @@ class Playlists(commands.GroupCog, name="playlist"):
                             os.remove(file)
 
                 # send the zip file
-                await ctx.followup.send(file=discord.File(f"{playlist}.zip"))
+                await interaction.followup.send(file=discord.File(f"{playlist}.zip"))
 
 
-def setup(client):
-    client.add_cog(Playlists(client))
+async def setup(client):
+    await client.add_cog(Playlists(client))
