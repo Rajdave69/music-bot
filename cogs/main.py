@@ -23,7 +23,7 @@ class Main(commands.Cog):
             await self.connect_nodes()
         except Exception as e:
             log.critical(f"Failed to connect to nodes.\n{e}")
-        await self.client.tree.sync()
+        # await self.client.tree.sync()
 
     async def connect_nodes(self):
         await self.client.wait_until_ready()
@@ -60,20 +60,17 @@ class Main(commands.Cog):
             song = await wavelink.YouTubeTrack.search(song, return_first=True)
         except:
             await interaction.response.send_message(embed=error_template("No songs found."))
-            await vc.disconnect()
-            return
+            return # todo add some sort of disconnect ONLY IF queue empty
 
         if song.is_stream:
             await interaction.response.send_message(embed=error_template("Streams are not supported."))
-            await vc.disconnect()
-            return
+            return # todo add some sort of disconnect ONLY IF queue empty
 
         if song.duration / 1000 > 600:
             if str(interaction.user.id) not in owner_ids:
                 if not interaction.user.guild_permissions.manage_guild or not interaction.user.guild_permissions.manage_channels:
                     await interaction.response.send_message("Songs longer than 10 minutes are not supported.")
-                    await vc.disconnect()
-                    return
+                    return  # todo add some sort of disconnect ONLY IF queue empty
 
         duration = str(datetime.timedelta(seconds=song.duration / 1000))
 
