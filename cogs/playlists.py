@@ -485,7 +485,11 @@ class Playlists(commands.GroupCog, name="playlist"):
 
     @app_commands.command()
     @app_commands.autocomplete(playlist=get_user_playlists)
-    async def export(self, interaction, playlist: str, export_format: str):
+    @app_commands.choices(export_format=[
+            app_commands.Choice(name="MP3 - 192", value="mp3_192"),
+            app_commands.Choice(name="MP3 - 320", value="mp3_320"),
+    ])
+    async def export(self, interaction, playlist: str, export_format: app_commands.Choice[str]):
         await interaction.response.defer()
 
         # check if playlist exists
@@ -508,12 +512,12 @@ class Playlists(commands.GroupCog, name="playlist"):
         self.cur.execute("SELECT song FROM playlist_data WHERE id = ?", (id_,))
         song_ids = [song[0] for song in self.cur.fetchall()]
 
-        match export_format[:3]:
+        match export_format.value.split("_")[0]:
             case "mp3":
                 # build the song objects
                 songs = []
                 for song_id in song_ids:
-                    song = await interaction.guild.voice_client.current_node.build_track(wavelink.YouTubeTrack, song_id)
+                    song = await wavelink.NodePool.get_node().build_track(cls=wavelink.YouTubeTrack, encoded=song_id)
                     songs.append(song.uri)
                     print(song.uri)
 
@@ -544,19 +548,22 @@ class Playlists(commands.GroupCog, name="playlist"):
                     thread.start()
                     threads.append(thread)
 
-                # for thread in threads:
-                #     thread.join()
+                for thread in threads:
+                    thread.join()
 
-                # zip the songs
-                with zipfile.ZipFile(f"{playlist}.zip", "w") as zip:
-                    # for .mp3 in ./    TODO improve to a better system
-                    for file in os.listdir():
-                        if file.endswith(".mp3"):
-                            zip.write(file)
-                            os.remove(file)
+                for file in os.listdir():
+                    if file.endswith(".mp3"):
+                        await interaction.channel.send(file=discord.File(file))
 
-                # send the zip file
-                await interaction.followup.send(file=discord.File(f"{playlist}.zip"))
+                await interaction.followup.send(
+                    embed=embed_template(
+                        title="Export",
+                        description="Successfully exported the playlist."
+                    )
+                )
+
+
+
 
 
 async def setup(client):
