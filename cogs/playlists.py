@@ -68,6 +68,9 @@ class Playlists(commands.GroupCog, name="playlist"):
     ])
     async def create(self, interaction, name: str,
                      playlist_visibility: str):  # todo test
+
+        await interaction.response.defer()
+
         # remove unicode characters and allow only a-z, A-Z, 0-9, and _ in playlist names
         if not name.isalnum() and not name.replace("-", "").replace("_", "").isalnum():
 

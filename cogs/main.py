@@ -57,7 +57,7 @@ class Main(commands.Cog):
                 ephemeral=True)
 
         try:
-            song = await wavelink.YouTubeTrack.search(song, return_first=True)
+            song = (await wavelink.YouTubeTrack.search(song))[0]
         except:
             await interaction.response.send_message(embed=error_template("No songs found."))
             return # todo add some sort of disconnect ONLY IF queue empty
