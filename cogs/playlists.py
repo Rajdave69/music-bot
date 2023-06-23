@@ -489,8 +489,8 @@ class Playlists(commands.GroupCog, name="playlist"):
     @app_commands.command()
     @app_commands.autocomplete(playlist=get_user_playlists)
     @app_commands.choices(export_format=[
-            app_commands.Choice(name="MP3 - 192", value="mp3_192"),
-            app_commands.Choice(name="MP3 - 320", value="mp3_320"),
+        app_commands.Choice(name="MP3 - 192", value="mp3_192"),
+        app_commands.Choice(name="MP3 - 320", value="mp3_320"),
     ])
     async def export(self, interaction, playlist: str, export_format: app_commands.Choice[str]):
         await interaction.response.defer()
